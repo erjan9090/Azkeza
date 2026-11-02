@@ -4,6 +4,9 @@
  * (Выполнять от имени: Я, Доступ: Все).
  * После замены кода: Развернуть → Управление развёртываниями → ✏ → Версия: новая.
  */
+// Если скрипт создан отдельно на script.google.com, впишите сюда ID таблицы
+// (часть адреса таблицы между /d/ и /edit). Если скрипт открыт из самой таблицы — оставьте пусто.
+const SPREADSHEET_ID = '';
 const SHEET_NAME = 'Журнал';
 const HEADERS = ['Дата', 'Имя', 'Упражнение', 'Время', 'Норма, мин', 'Метров', 'Температура, °C',
                  'Цель, слоёв', 'Засчитано слоёв', 'Слоёв точно', 'Цель выполнена', 'ID'];
@@ -46,7 +49,7 @@ function doPost(e) {
 }
 
 function getSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
