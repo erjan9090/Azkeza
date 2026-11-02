@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Аскеза ходьбы</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: one narrow column — goal, time, distance, then one big result block */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --fg:#17201c; --muted:#5d6b64; --line:#dde3e0;
+  --accent:#d9730d; --good:#1f8a4c; --bad:#c2382b;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111614; --surface:#1a211e; --fg:#e8eeeb; --muted:#97a59e; --line:#2b3531;
+  --accent:#f0913a; --good:#4cc283; --bad:#ff7466; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111614; --surface:#1a211e; --fg:#e8eeeb; --muted:#97a59e; --line:#2b3531;
+  --accent:#f0913a; --good:#4cc283; --bad:#ff7466; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 32px}
+.wrap{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--display);font-weight:700;font-size:20px;margin:4px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;font:600 18px var(--body);padding:11px 0;border:0;background:transparent;color:var(--fg);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.time{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px}
+.time span{font:700 28px var(--display);color:var(--muted)}
+input{font:700 30px var(--display);width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-variant-numeric:tabular-nums;text-align:center;min-width:0}
+input[readonly]{border-color:transparent;background:transparent;color:var(--accent)}
+.unit{font-size:13px;color:var(--muted);text-align:center}
+.btns{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.btn{font:600 17px var(--body);padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.big{font:700 44px/1 var(--display);font-variant-numeric:tabular-nums}
+.big.mid{font-size:30px}
+.good{color:var(--good)} .bad{color:var(--bad)}
+.sm{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.line{font-size:15px;font-variant-numeric:tabular-nums}
+.line b{font-weight:600}
+</style>
+
+<div class="wrap">
+  <h1>Аскеза ходьбы</h1>
+
+  <div class="panel">
+    <span class="lbl">Цель, слоёв</span>
+    <div class="seg" id="layers"></div>
+  </div>
+
+  <div class="panel">
+    <span class="lbl">Время</span>
+    <div class="time">
+      <div><input id="mm" type="number" inputmode="numeric" min="0" placeholder="0"><div class="unit">мин</div></div>
+      <span>:</span>
+      <div><input id="ss" type="number" inputmode="numeric" min="0" max="59" placeholder="00"><div class="unit">сек</div></div>
+    </div>
+    <div class="btns"><button class="btn primary" id="go">Старт</button><button class="btn" id="reset">Сброс</button></div>
+  </div>
+
+  <div class="panel">
+    <span class="lbl">Пройдено, метров</span>
+    <input id="dist" type="number" inputmode="numeric" min="0" placeholder="0">
+  </div>
+
+  <div class="panel">
+    <div class="res">
+      <div><div class="lbl">Засчитано слоёв</div><div class="big" id="r-layers">—</div><div class="sm" id="r-frac"></div></div>
+      <div><div class="lbl" id="r-left-lbl">Осталось</div><div class="big mid" id="r-left">—</div><div class="sm" id="r-left-sub"></div></div>
+    </div>
+    <div class="line" id="r-norm"></div>
+    <div class="line" id="r-hint"></div>
+  </div>
+</div>
+
+<script>
+const T0=18;
+const D=[3180,3240,3300,3360,3420,3460,3520,3560,3600,3640,3680,3720,3760,3800,3840,3860,3900,3940,3960,4000,4020,4040,4080,4100,4120,4140,4180,4200,4220,4240,4260,4280,4300,4320,4340,4360,4380,4400,4420,4440,4460,4480,4500];
+const T1=T0+D.length-1;
+const norm=m=>D[Math.min(T1,Math.max(T0,m))-T0];
+const $=id=>document.getElementById(id);
+const nf=(x,d=0)=>x.toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+const store={get(k,d){try{const v=localStorage.getItem('ask2_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('ask2_'+k,JSON.stringify(v))}catch(e){}}};
+let st=Object.assign({L:1,acc:0,startedAt:null,dist:''},store.get('st',{}));
+const save=()=>store.set('st',st);
+
+/* layers */
+const seg=$('layers');
+[1,2,3,4,5].forEach(v=>{const b=document.createElement('button');b.textContent=v;b.onclick=()=>{st.L=v;save();paintSeg();calc()};seg.appendChild(b)});
+const paintSeg=()=>[...seg.children].forEach((b,i)=>b.setAttribute('aria-pressed',i+1===st.L));
+paintSeg();
+
+/* time */
+const secs=()=>st.acc+(st.startedAt?(Date.now()-st.startedAt)/1000:0);
+function showTime(){const s=Math.floor(secs());$('mm').value=s?Math.floor(s/60):'';$('ss').value=s?String(s%60).padStart(2,'0'):''}
+function readManual(){st.acc=(+$('mm').value||0)*60+(+$('ss').value||0);save();calc()}
+$('mm').oninput=readManual;$('ss').oninput=readManual;
+
+let tick=null,lock=null;
+async function wake(on){try{if(on&&navigator.wakeLock)lock=await navigator.wakeLock.request('screen');else if(lock){await lock.release();lock=null}}catch(e){}}
+function paintTimer(){
+  const run=!!st.startedAt;
+  $('mm').readOnly=run;$('ss').readOnly=run;
+  $('go').textContent=run?'Стоп':(st.acc>0?'Продолжить':'Старт');
+  clearInterval(tick);
+  if(run)tick=setInterval(()=>{showTime();calc()},1000);
+}
+$('go').onclick=()=>{if(st.startedAt){st.acc=secs();st.startedAt=null;wake(false)}else{st.startedAt=Date.now();wake(true)}save();paintTimer();showTime();calc()};
+$('reset').onclick=()=>{st.acc=0;st.startedAt=null;st.dist='';$('dist').value='';save();wake(false);paintTimer();showTime();calc()};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&st.startedAt){wake(true);showTime();calc()}});
+
+/* distance */
+$('dist').value=st.dist;
+$('dist').oninput=e=>{st.dist=e.target.value;save();calc()};
+
+/* result */
+function calc(){
+  const t=secs(), d=+String(st.dist).replace(',','.')||0, L=st.L;
+  const R=(id,v,cls)=>{const el=$(id);el.textContent=v;if(cls!==undefined)el.className=el.className.replace(/ ?(good|bad)/g,'')+(cls?' '+cls:'')};
+  if(t<=0){R('r-layers','—','');R('r-frac','');R('r-left','—','');R('r-left-sub','');$('r-norm').textContent='Нажмите «Старт» или введите время';$('r-hint').textContent='';return}
+  const m=Math.ceil(t/60);
+  if(m>T1){R('r-layers','—','');R('r-frac','');R('r-left','—','');R('r-left-sub','');$('r-norm').textContent='Больше 60 минут — в таблице нормы нет';$('r-hint').textContent='';return}
+  const n=norm(m), x=d/n, full=Math.floor(x+1e-9), goal=L*n, left=goal-d;
+  $('r-norm').innerHTML=`Норма за <b>${Math.max(m,T0)} мин</b>: ${nf(n)} м на слой, на цель ${L} — <b>${nf(goal)} м</b>`+(m<T0?' <span class="sm">(до 18 мин берётся норма 18 мин)</span>':'');
+  R('r-layers',d>0?full:'—',full>=L?'good':'');
+  R('r-frac',d>0?nf(x,2)+' слоя':'');
+  if(left<=0){
+    $('r-left-lbl').textContent='До цели';R('r-left','✓','good');
+    let k=m;while(k<T1&&L*norm(k+1)<=d)k++;
+    R('r-left-sub','цель выполнена');
+    $('r-hint').innerHTML=`Засчитается, если закончить до <b>${Math.max(k,T0)}:00</b>`;
+  }else{
+    $('r-left-lbl').textContent='До '+L+' сл.';R('r-left',nf(Math.ceil(left))+' м','bad');R('r-left-sub','при текущем времени');
+    let hint='';
+    if(d>0&&t>=60){
+      const v=d/t;let hit=null,need=Infinity;
+      for(let k=Math.max(m,T0);k<=T1;k++){const dt=k*60-t;if(dt<=0)continue;const req=L*norm(k)-d;if(hit===null&&d+v*dt>=L*norm(k))hit=k;need=Math.min(need,req/dt*3.6)}
+      hint=hit?`При текущем темпе (${nf(v*3.6,1)} км/ч) цель будет к <b>${hit}-й минуте</b>`:(isFinite(need)?`Текущий темп ${nf(v*3.6,1)} км/ч — не успеть. Нужно хотя бы <b>${nf(need,1)} км/ч</b>`:'');
+    }
+    $('r-hint').innerHTML=hint;
+  }
+}
+
+showTime();paintTimer();calc();
+</script>
