@@ -454,7 +454,9 @@ async function loadRemote(){
   remoteState='loading';renderLog();
   const url=SCRIPT_URL+'?name='+encodeURIComponent(name)+'&_='+Date.now();
   let j=null;
-  try{const res=await fetch(url,{cache:'no-store'});j=await res.json()}catch(e){j=null}
+  /* основной путь — POST, как при сохранении записи */
+  try{const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'list',name})});j=await res.json();if(!j||!Array.isArray(j.records))j=null}catch(e){j=null}
+  if(!j)try{const res=await fetch(url,{cache:'no-store'});j=await res.json()}catch(e){j=null}
   if(!j){
     /* запасной путь: JSONP через <script>, обходит блокировку обычного запроса */
     j=await new Promise(done=>{

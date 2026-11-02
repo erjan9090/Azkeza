@@ -67,6 +67,11 @@ function doPost(e) {
   lock.waitLock(10000);
   try {
     const d = JSON.parse(e.postData.contents);
+    // Запрос журнала: {action:'list', name:'Имя'}
+    if (d.action === 'list') {
+      return ContentService.createTextOutput(doGet_({ parameter: { name: String(d.name || ' ') } }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     const sheet = getSheet_();
 
     // Защита от повторной отправки одной и той же записи
