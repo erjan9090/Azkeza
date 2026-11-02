@@ -2,29 +2,36 @@
 <html lang="ru">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Аскеза ходьбы</title>
+<title>Аскезы</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;700&display=swap">
 <style>
-/* Layout: one narrow column — goal, time, distance, then one big result block */
+/* Layout: one narrow column — tabs, the exercise's panels, then the shared name + journal */
 :root{
   --bg:#f3f5f4; --surface:#ffffff; --fg:#17201c; --muted:#5d6b64; --line:#dde3e0;
-  --accent:#d9730d; --good:#1f8a4c; --bad:#c2382b;
+  --accent:#d9730d; --water:#1d74b8; --good:#1f8a4c; --good-soft:#e2f3e8; --bad:#c2382b;
   --display:"Unbounded","Golos Text",system-ui,sans-serif;
   --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#111614; --surface:#1a211e; --fg:#e8eeeb; --muted:#97a59e; --line:#2b3531;
-  --accent:#f0913a; --good:#4cc283; --bad:#ff7466; color-scheme:dark}}
+  --accent:#f0913a; --water:#5aa9e6; --good:#4cc283; --good-soft:#163323; --bad:#ff7466; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#111614; --surface:#1a211e; --fg:#e8eeeb; --muted:#97a59e; --line:#2b3531;
-  --accent:#f0913a; --good:#4cc283; --bad:#ff7466; color-scheme:dark}
+  --accent:#f0913a; --water:#5aa9e6; --good:#4cc283; --good-soft:#163323; --bad:#ff7466; color-scheme:dark}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 32px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .wrap{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+section{display:flex;flex-direction:column;gap:14px}
 h1{font-family:var(--display);font-weight:700;font-size:20px;margin:4px 0 0}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:6px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.tabs button{font:600 16px var(--body);padding:11px 4px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:background .3s,border-color .3s}
+.panel.done{background:var(--good-soft);border-color:var(--good)}
 .lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{flex:1;font:600 18px var(--body);padding:11px 0;border:0;background:transparent;color:var(--fg);cursor:pointer}
@@ -34,66 +41,148 @@ h1{font-family:var(--display);font-weight:700;font-size:20px;margin:4px 0 0}
 .time span{font:700 28px var(--display);color:var(--muted)}
 input{font:700 30px var(--display);width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-variant-numeric:tabular-nums;text-align:center;min-width:0}
 input[readonly]{border-color:transparent;background:transparent;color:var(--accent)}
+input:disabled{opacity:.6}
 .unit{font-size:13px;color:var(--muted);text-align:center}
 .btns{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.btns.even{grid-template-columns:1fr 1fr}
 .btn{font:600 17px var(--body);padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
 button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .res{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .big{font:700 44px/1 var(--display);font-variant-numeric:tabular-nums}
 .big.mid{font-size:30px}
+.clock{font:700 64px/1 var(--display);font-variant-numeric:tabular-nums;text-align:center;letter-spacing:.01em}
 .good{color:var(--good)} .bad{color:var(--bad)}
 .sm{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
 .line{font-size:15px;font-variant-numeric:tabular-nums}
 .line b{font-weight:600}
+.center{text-align:center}
+.segs{display:flex;gap:4px}
+.segs span{flex:1;height:12px;border-radius:6px;background:var(--line);overflow:hidden;position:relative}
+.segs i{position:absolute;inset:0 auto 0 0;background:var(--accent)}
+.segs span.full i{background:var(--good)}
+#p-water .segs i{background:var(--water)}
+#p-water .segs span.full i{background:var(--good)}
+.prep{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.prep .clock{font-size:40px;color:var(--water)}
 input.name{font:500 18px var(--body);text-align:left}
 .log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .log li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;font-variant-numeric:tabular-nums}
 .log li:last-child{border-bottom:0}
 .log .st{color:var(--muted);white-space:nowrap}
+.log .ty{font-weight:600}
+@media (prefers-reduced-motion: reduce){.panel{transition:none}}
 </style>
 
 <div class="wrap">
-  <h1>Аскеза ходьбы</h1>
+  <h1>Аскезы</h1>
 
-  <div class="panel">
-    <span class="lbl">Цель, слоёв</span>
-    <div class="seg" id="layers"></div>
-  </div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="t-walk">Ходьба</button>
+    <button role="tab" id="t-static">Статика</button>
+    <button role="tab" id="t-water">Вода</button>
+  </nav>
 
-  <div class="panel">
-    <span class="lbl">Время</span>
-    <div class="time">
-      <div><input id="mm" type="number" inputmode="numeric" min="0" placeholder="0"><div class="unit">мин</div></div>
-      <span>:</span>
-      <div><input id="ss" type="number" inputmode="numeric" min="0" max="59" placeholder="00"><div class="unit">сек</div></div>
+  <!-- ХОДЬБА -->
+  <section id="p-walk">
+    <div class="panel">
+      <span class="lbl">Цель, слоёв</span>
+      <div class="seg" id="layers"></div>
     </div>
-    <div class="btns"><button class="btn primary" id="go">Старт</button><button class="btn" id="reset">Сброс</button></div>
-  </div>
 
-  <div class="panel">
-    <span class="lbl">Пройдено, метров</span>
-    <input id="dist" type="number" inputmode="numeric" min="0" placeholder="0">
-  </div>
-
-  <div class="panel">
-    <div class="res">
-      <div><div class="lbl">Засчитано слоёв</div><div class="big" id="r-layers">—</div><div class="sm" id="r-frac"></div></div>
-      <div><div class="lbl" id="r-left-lbl">Осталось</div><div class="big mid" id="r-left">—</div><div class="sm" id="r-left-sub"></div></div>
+    <div class="panel">
+      <span class="lbl">Время</span>
+      <div class="time">
+        <div><input id="mm" type="number" inputmode="numeric" min="0" placeholder="0"><div class="unit">мин</div></div>
+        <span>:</span>
+        <div><input id="ss" type="number" inputmode="numeric" min="0" max="59" placeholder="00"><div class="unit">сек</div></div>
+      </div>
+      <div class="btns"><button class="btn primary" id="go">Старт</button><button class="btn" id="reset">Сброс</button></div>
     </div>
-    <div class="line" id="r-norm"></div>
-    <div class="line" id="r-hint"></div>
-  </div>
+
+    <div class="panel">
+      <span class="lbl">Пройдено, метров</span>
+      <input id="dist" type="number" inputmode="numeric" min="0" placeholder="0">
+    </div>
+
+    <div class="panel">
+      <div class="res">
+        <div><div class="lbl">Засчитано слоёв</div><div class="big" id="r-layers">—</div><div class="sm" id="r-frac"></div></div>
+        <div><div class="lbl" id="r-left-lbl">Осталось</div><div class="big mid" id="r-left">—</div><div class="sm" id="r-left-sub"></div></div>
+      </div>
+      <div class="line" id="r-norm"></div>
+      <div class="line" id="r-hint"></div>
+    </div>
+  </section>
+
+  <!-- СТАТИКА -->
+  <section id="p-static" hidden>
+    <div class="panel">
+      <span class="lbl">Цель, слоёв · 1 слой = 13 мин</span>
+      <div class="seg" id="s-layers"></div>
+    </div>
+
+    <div class="panel" id="s-panel">
+      <span class="lbl" id="s-clock-lbl">Осталось</span>
+      <div class="clock" id="s-clock">13:00</div>
+      <div class="segs" id="s-segs"></div>
+      <div class="line center" id="s-status"></div>
+      <div class="btns"><button class="btn primary" id="s-go">Старт</button><button class="btn" id="s-reset">Сброс</button></div>
+    </div>
+
+    <div class="panel">
+      <span class="lbl">Сделано (можно ввести вручную)</span>
+      <div class="time">
+        <div><input id="s-mm" type="number" inputmode="numeric" min="0" placeholder="0"><div class="unit">мин</div></div>
+        <span>:</span>
+        <div><input id="s-ss" type="number" inputmode="numeric" min="0" max="59" placeholder="00"><div class="unit">сек</div></div>
+      </div>
+      <div class="line" id="s-credit"></div>
+    </div>
+  </section>
+
+  <!-- ВОДА -->
+  <section id="p-water" hidden>
+    <div class="panel">
+      <span class="lbl">Температура воды, °C</span>
+      <input id="w-temp" type="number" inputmode="decimal" step="0.1" min="5" max="32" placeholder="например, 18">
+      <div class="line" id="w-norm">Введите температуру от 5 до 32°</div>
+    </div>
+
+    <div class="panel" id="w-panel">
+      <span class="lbl" id="w-clock-lbl">До 5 слоёв</span>
+      <div class="clock" id="w-clock">—</div>
+      <div class="segs" id="w-segs"></div>
+      <div class="line center" id="w-status"></div>
+      <div class="btns"><button class="btn primary" id="w-go">Старт</button><button class="btn" id="w-reset">Сброс</button></div>
+      <div class="prep" id="w-prep">
+        <span class="lbl" id="w-prep-lbl">Подготовка перед стартом</span>
+        <div class="clock" id="w-prep-clock">2:00</div>
+        <div class="btns even"><button class="btn" id="w-minus">−30 с</button><button class="btn" id="w-now">Без подготовки</button></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <span class="lbl">В воде (можно ввести вручную)</span>
+      <div class="time">
+        <div><input id="w-mm" type="number" inputmode="numeric" min="0" placeholder="0"><div class="unit">мин</div></div>
+        <span>:</span>
+        <div><input id="w-ss" type="number" inputmode="numeric" min="0" max="59" placeholder="00"><div class="unit">сек</div></div>
+      </div>
+      <div class="line" id="w-credit"></div>
+    </div>
+  </section>
 
   <div class="panel">
     <span class="lbl">Ваше имя</span>
     <input id="name" class="name" type="text" autocomplete="name" maxlength="60" placeholder="Например, Ержан">
-    <button class="btn primary" id="save">Сохранить прогулку</button>
+    <button class="btn primary" id="save">Сохранить в журнал</button>
     <div class="line" id="save-msg"></div>
   </div>
 
   <div class="panel" id="log-panel" hidden>
-    <span class="lbl">Мои прогулки</span>
+    <span class="lbl">Журнал</span>
     <ul class="log" id="log"></ul>
   </div>
 </div>
@@ -101,49 +190,79 @@ input.name{font:500 18px var(--body);text-align:left}
 <script>
 /* Адрес веб-приложения Google Apps Script (заканчивается на /exec) */
 const SCRIPT_URL='';
+
+/* ---------- общее ---------- */
+const $=id=>document.getElementById(id);
+const nf=(x,d=0)=>x.toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const pad=n=>String(n).padStart(2,'0');
+const fmt=s=>{s=Math.max(0,Math.ceil(s-1e-6));return Math.floor(s/60)+':'+pad(s%60)};
+const fmtUp=s=>{s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+pad(s%60)};
+const store={get(k,d){try{const v=localStorage.getItem('ask2_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('ask2_'+k,JSON.stringify(v))}catch(e){}}};
+const now=()=>Date.now();
+
+/* звук и вибрация */
+let ac=null;
+function unlockAudio(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state!=='running')ac.resume();const o=ac.createOscillator(),g=ac.createGain();g.gain.value=0;o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+.01)}catch(e){}}
+const PATTERNS={layer:[[880,.3]],start:[[660,.2],[880,.35]],goal:[[880,.2],[880,.2],[1175,.7]],end:[[1175,.35],[880,.35],[660,.6]]};
+const VIBES={layer:[300],start:[200,100,200],goal:[300,150,300,150,700],end:[600,200,600]};
+function beep(kind){
+  try{if(ac){if(ac.state!=='running')ac.resume();let t=ac.currentTime+.03;
+    PATTERNS[kind].forEach(([f,d])=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.6,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+      o.connect(g).connect(ac.destination);o.start(t);o.stop(t+d+.05);t+=d+.12})}}catch(e){}
+  try{navigator.vibrate&&navigator.vibrate(VIBES[kind])}catch(e){}
+}
+
+/* экран не гаснет, пока идёт любой таймер */
+let lock=null;
+async function syncWake(){
+  const want=!!(st.startedAt||S.startedAt||W.startedAt||W.prepEnd)&&!document.hidden;
+  try{if(want&&!lock&&navigator.wakeLock){lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>{lock=null})}
+      else if(!want&&lock){await lock.release();lock=null}}catch(e){}
+}
+
+/* вкладки */
+const TABS=['walk','static','water'];
+let tab=store.get('tab','walk');if(!TABS.includes(tab))tab='walk';
+function showTab(t){tab=t;store.set('tab',t);TABS.forEach(x=>{$('t-'+x).setAttribute('aria-selected',x===t);$('p-'+x).hidden=x!==t});renderAll()}
+TABS.forEach(t=>$('t-'+t).onclick=()=>showTab(t));
+
+function layerSeg(el,get,set){
+  [1,2,3,4,5].forEach(v=>{const b=document.createElement('button');b.textContent=v;b.onclick=()=>{set(v);paint()};el.appendChild(b)});
+  const paint=()=>[...el.children].forEach((b,i)=>b.setAttribute('aria-pressed',i+1===get()));paint();
+}
+function segBars(el,n,elapsed,per){
+  if(el.children.length!==n){el.innerHTML='';for(let i=0;i<n;i++){const s=document.createElement('span');s.appendChild(document.createElement('i'));el.appendChild(s)}}
+  [...el.children].forEach((s,i)=>{const f=Math.max(0,Math.min(1,(elapsed-i*per)/per));s.firstChild.style.width=(f*100)+'%';s.classList.toggle('full',f>=1)});
+}
+function manualInputs(mmId,ssId,sec,editable){
+  const mm=$(mmId),ss=$(ssId);mm.readOnly=ss.readOnly=!editable;
+  if(document.activeElement===mm||document.activeElement===ss)return;
+  const s=Math.floor(sec);mm.value=s?Math.floor(s/60):'';ss.value=s?pad(s%60):'';
+}
+const readMS=(mmId,ssId)=>(+$(mmId).value||0)*60+Math.min(59,+$(ssId).value||0);
+
+/* ---------- ХОДЬБА ---------- */
 const T0=18;
 const D=[3180,3240,3300,3360,3420,3460,3520,3560,3600,3640,3680,3720,3760,3800,3840,3860,3900,3940,3960,4000,4020,4040,4080,4100,4120,4140,4180,4200,4220,4240,4260,4280,4300,4320,4340,4360,4380,4400,4420,4440,4460,4480,4500];
 const T1=T0+D.length-1;
 const norm=m=>D[Math.min(T1,Math.max(T0,m))-T0];
 /* больше 60 мин: дистанция на 60:00 по среднему темпу */
 const over=(t,d)=>d*T1*60/t;
-const $=id=>document.getElementById(id);
-const nf=(x,d=0)=>x.toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});
 
-const store={get(k,d){try{const v=localStorage.getItem('ask2_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('ask2_'+k,JSON.stringify(v))}catch(e){}}};
 let st=Object.assign({L:1,acc:0,startedAt:null,dist:''},store.get('st',{}));
 const save=()=>store.set('st',st);
-
-/* layers */
-const seg=$('layers');
-[1,2,3,4,5].forEach(v=>{const b=document.createElement('button');b.textContent=v;b.onclick=()=>{st.L=v;save();paintSeg();calc()};seg.appendChild(b)});
-const paintSeg=()=>[...seg.children].forEach((b,i)=>b.setAttribute('aria-pressed',i+1===st.L));
-paintSeg();
-
-/* time */
-const secs=()=>st.acc+(st.startedAt?(Date.now()-st.startedAt)/1000:0);
-function showTime(){const s=Math.floor(secs());$('mm').value=s?Math.floor(s/60):'';$('ss').value=s?String(s%60).padStart(2,'0'):''}
-function readManual(){st.acc=(+$('mm').value||0)*60+(+$('ss').value||0);save();calc()}
+layerSeg($('layers'),()=>st.L,v=>{st.L=v;save();calc()});
+const secs=()=>st.acc+(st.startedAt?(now()-st.startedAt)/1000:0);
+function showTime(){if(document.activeElement===$('mm')||document.activeElement===$('ss'))return;const s=Math.floor(secs());$('mm').value=s?Math.floor(s/60):'';$('ss').value=s?pad(s%60):''}
+function readManual(){st.acc=readMS('mm','ss');save();calc()}
 $('mm').oninput=readManual;$('ss').oninput=readManual;
-
-let tick=null,lock=null;
-async function wake(on){try{if(on&&navigator.wakeLock)lock=await navigator.wakeLock.request('screen');else if(lock){await lock.release();lock=null}}catch(e){}}
-function paintTimer(){
-  const run=!!st.startedAt;
-  $('mm').readOnly=run;$('ss').readOnly=run;
-  $('go').textContent=run?'Стоп':(st.acc>0?'Продолжить':'Старт');
-  clearInterval(tick);
-  if(run)tick=setInterval(()=>{showTime();calc()},1000);
-}
-$('go').onclick=()=>{if(st.startedAt){st.acc=secs();st.startedAt=null;wake(false)}else{st.startedAt=Date.now();wake(true)}save();paintTimer();showTime();calc()};
-$('reset').onclick=()=>{st.acc=0;st.startedAt=null;st.dist='';$('dist').value='';save();wake(false);paintTimer();showTime();calc()};
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&st.startedAt){wake(true);showTime();calc()}});
-
-/* distance */
+function paintTimer(){const run=!!st.startedAt;$('mm').readOnly=run;$('ss').readOnly=run;$('go').textContent=run?'Стоп':(st.acc>0?'Продолжить':'Старт')}
+$('go').onclick=()=>{if(st.startedAt){st.acc=secs();st.startedAt=null}else{st.startedAt=now()}save();paintTimer();showTime();calc();syncWake()};
+$('reset').onclick=()=>{st.acc=0;st.startedAt=null;st.dist='';$('dist').value='';save();paintTimer();showTime();calc();syncWake()};
 $('dist').value=st.dist;
 $('dist').oninput=e=>{st.dist=e.target.value;save();calc()};
 
-/* result */
 function calc(){
   const t=secs(), d=+String(st.dist).replace(',','.')||0, L=st.L;
   const R=(id,v,cls)=>{const el=$(id);el.textContent=v;if(cls!==undefined)el.className=el.className.replace(/ ?(good|bad)/g,'')+(cls?' '+cls:'')};
@@ -179,20 +298,141 @@ function calc(){
   }
 }
 
-/* name + journal */
+/* ---------- СТАТИКА ---------- */
+const S_LAYER=13*60;
+let S=Object.assign({L:1,acc:0,startedAt:null},store.get('static',{}));
+const sSave=()=>store.set('static',S);
+const sEl=()=>S.acc+(S.startedAt?(now()-S.startedAt)/1000:0);
+let sSig=Math.floor(sEl()/S_LAYER);
+layerSeg($('s-layers'),()=>S.L,v=>{S.L=v;sSave();renderStatic()});
+
+function tickStatic(){
+  if(!S.startedAt)return;
+  const e=sEl(),goal=S.L*S_LAYER,k=Math.floor(e/S_LAYER);
+  if(e>=goal){S.acc=goal;S.startedAt=null;sSig=S.L;sSave();beep('goal');syncWake();return}
+  if(k>sSig){sSig=k;beep('layer')}
+}
+function renderStatic(){
+  const e=sEl(),goal=S.L*S_LAYER,run=!!S.startedAt,done=e>=goal;
+  const k=Math.min(S.L,Math.floor(e/S_LAYER));
+  $('s-panel').classList.toggle('done',done);
+  $('s-clock-lbl').textContent=done?'Цель выполнена':'Осталось до '+S.L+' сл.';
+  $('s-clock').textContent=done?'✓':fmt(goal-e);
+  $('s-clock').className='clock'+(done?' good':'');
+  segBars($('s-segs'),S.L,e,S_LAYER);
+  $('s-status').innerHTML=done?`${S.L} из ${S.L} слоёв · ${fmtUp(e)}`:`Слой <b>${k+1} из ${S.L}</b> · до следующего ${fmt(S_LAYER-e%S_LAYER)}`;
+  $('s-go').textContent=run?'Пауза':(e>0&&!done?'Продолжить':'Старт');
+  $('s-go').disabled=done&&!run;
+  manualInputs('s-mm','s-ss',e,!run);
+  $('s-credit').innerHTML=e>0?`Засчитано слоёв: <b>${k}</b> из ${S.L}`:'';
+}
+$('s-go').onclick=()=>{unlockAudio();if(S.startedAt){S.acc=sEl();S.startedAt=null}else{if(sEl()>=S.L*S_LAYER)return;S.startedAt=now();sSig=Math.floor(sEl()/S_LAYER)}sSave();renderStatic();syncWake()};
+$('s-reset').onclick=()=>{S.acc=0;S.startedAt=null;sSig=0;sSave();renderStatic();syncWake()};
+const sManual=()=>{S.acc=readMS('s-mm','s-ss');sSig=Math.floor(S.acc/S_LAYER);sSave();renderStatic()};
+$('s-mm').oninput=sManual;$('s-ss').oninput=sManual;
+
+/* ---------- ВОДА ---------- */
+/* минут на 5 слоёв: [нижняя, верхняя] граница */
+const WATER={5:[7,7],6:[8,8],7:[9,9],8:[12,12],9:[13,13],10:[14,14],11:[15,15],12:[16,16],13:[17,17],14:[18,18],15:[20,20],16:[21,21],17:[23,23],18:[25,25],19:[27,27],20:[30,30],21:[33,33],22:[38,38],23:[44,45],24:[54,55],25:[60,61],26:[64,65],27:[67,68],28:[70,71],29:[74,75],30:[77,79],32:[85,86]};
+const PREP=120;
+function waterNorm(raw){
+  const v=parseFloat(String(raw).replace(',','.'));
+  if(!isFinite(v))return null;
+  let t=Math.ceil(v-1e-9);               /* дробное — в тёплую сторону */
+  if(t<5)return {err:'Ниже 5° в таблице нормы нет'};
+  if(t>32)return {err:'Выше 32° в таблице нормы нет'};
+  const note=t===31?' (для 31° берётся норма 32°)':(t!==v?` (${nf(v,1)}° округлено до ${t}°)`:'');
+  if(t===31)t=32;
+  const [lo,hi]=WATER[t];return {t,lo,hi,note};
+}
+let W=Object.assign({temp:'',acc:0,startedAt:null,prepEnd:null,prep:PREP},store.get('water',{}));
+const wSave=()=>store.set('water',W);
+const wEl=()=>W.acc+(W.startedAt?(now()-W.startedAt)/1000:0);
+const wLayer=n=>n.lo*60/5;
+let wSig=(()=>{const n=waterNorm(W.temp);return n&&!n.err?Math.min(5,Math.floor(wEl()/wLayer(n))):0})();
+$('w-temp').value=W.temp;
+$('w-temp').oninput=e=>{W.temp=e.target.value;const n=waterNorm(W.temp);wSig=n&&!n.err?Math.min(5,Math.floor(wEl()/wLayer(n))):0;wSave();renderWater()};
+
+function wBeginMain(at){W.startedAt=at;W.prepEnd=null;wSave();beep('start')}
+function tickWater(){
+  if(W.prepEnd&&now()>=W.prepEnd){wBeginMain(W.prepEnd);syncWake()}
+  if(!W.startedAt)return;
+  const n=waterNorm(W.temp);if(!n||n.err)return;
+  const e=wEl(),k=Math.min(5,Math.floor(e/wLayer(n)));
+  if(k>wSig){wSig=k;beep(k===5?'goal':'layer');if(k===5&&n.hi===n.lo){W.acc=n.lo*60;W.startedAt=null;wSave();syncWake();return}}
+  if(e>=n.hi*60){W.acc=n.hi*60;W.startedAt=null;wSave();beep('end');syncWake()}
+}
+function renderWater(){
+  const n=waterNorm(W.temp),ok=n&&!n.err,e=wEl(),run=!!W.startedAt,prep=!!W.prepEnd;
+  $('w-temp').disabled=run||prep;
+  if(!n)$('w-norm').textContent='Введите температуру от 5 до 32°';
+  else if(n.err)$('w-norm').innerHTML=`<span class="bad">${n.err}</span>`;
+  else $('w-norm').innerHTML=`${n.t}° → <b>${n.lo===n.hi?n.lo:n.lo+'–'+n.hi} мин</b> на 5 слоёв · 1 слой = ${fmt(wLayer(n))}${n.note}`;
+
+  const doneLo=ok&&e>=n.lo*60, doneHi=ok&&e>=n.hi*60;
+  $('w-panel').classList.toggle('done',doneLo);
+  if(!ok){$('w-clock-lbl').textContent='До 5 слоёв';$('w-clock').textContent='—';$('w-clock').className='clock';$('w-status').textContent='';$('w-segs').innerHTML=''}
+  else{
+    const k=Math.min(5,Math.floor(e/wLayer(n)));
+    if(!doneLo){$('w-clock-lbl').textContent='До 5 слоёв';$('w-clock').textContent=fmt(n.lo*60-e);$('w-clock').className='clock'}
+    else if(!doneHi){$('w-clock-lbl').textContent='Добор до '+n.hi+' мин';$('w-clock').textContent=fmt(n.hi*60-e);$('w-clock').className='clock good'}
+    else{$('w-clock-lbl').textContent='Готово';$('w-clock').textContent='✓';$('w-clock').className='clock good'}
+    segBars($('w-segs'),5,e,wLayer(n));
+    $('w-status').innerHTML=doneLo?`5 слоёв засчитано ✓ · ${fmtUp(e)}`:(prep?'Подготовка — заходите в воду':`Слой <b>${k+1} из 5</b> · до следующего ${fmt(wLayer(n)-e%wLayer(n))}`);
+  }
+  $('w-go').textContent=prep?'Отмена':run?'Пауза':(e>0&&!doneHi?'Продолжить':'Старт');
+  $('w-go').disabled=!ok||(doneHi&&!run);
+  /* подготовка видна, пока основное время не начато */
+  const showPrep=e===0&&!run;
+  $('w-prep').hidden=!showPrep;
+  if(showPrep){
+    const left=prep?(W.prepEnd-now())/1000:W.prep;
+    $('w-prep-lbl').textContent=prep?'Подготовка — заходите в воду':'Подготовка перед стартом';
+    $('w-prep-clock').textContent=fmt(left);
+    $('w-minus').disabled=left<=0;
+    $('w-now').textContent=prep?'Начать сейчас':'Без подготовки';
+  }
+  manualInputs('w-mm','w-ss',e,!run&&!prep);
+  $('w-credit').innerHTML=ok&&e>0?`Засчитано слоёв: <b>${Math.min(5,Math.floor(e/wLayer(n)))}</b> из 5`:'';
+}
+$('w-go').onclick=()=>{
+  unlockAudio();
+  const n=waterNorm(W.temp);if(!n||n.err)return;
+  if(W.prepEnd){W.prep=PREP;W.prepEnd=null}                       /* отмена подготовки */
+  else if(W.startedAt){W.acc=wEl();W.startedAt=null}              /* пауза */
+  else if(wEl()>0){W.startedAt=now();wSig=Math.min(5,Math.floor(wEl()/wLayer(n)))}  /* продолжить */
+  else if(W.prep>0){W.prepEnd=now()+W.prep*1000}                  /* старт с подготовкой */
+  else{wSig=0;wBeginMain(now())}
+  wSave();renderWater();syncWake();
+};
+$('w-minus').onclick=()=>{if(W.prepEnd){W.prepEnd-=30000;tickWater()}else{W.prep=Math.max(0,W.prep-30)}wSave();renderWater()};
+$('w-now').onclick=()=>{unlockAudio();const n=waterNorm(W.temp);if(!n||n.err)return;wSig=0;if(W.prepEnd){wBeginMain(now())}else{wBeginMain(now())}renderWater();syncWake()};
+$('w-reset').onclick=()=>{W.acc=0;W.startedAt=null;W.prepEnd=null;W.prep=PREP;wSig=0;wSave();renderWater();syncWake()};
+const wManual=()=>{W.acc=readMS('w-mm','w-ss');const n=waterNorm(W.temp);wSig=n&&!n.err?Math.min(5,Math.floor(W.acc/wLayer(n))):0;wSave();renderWater()};
+$('w-mm').oninput=wManual;$('w-ss').oninput=wManual;
+
+/* ---------- общий тик ---------- */
+function renderAll(){if(tab==='walk'){showTime();paintTimer();calc()}else if(tab==='static')renderStatic();else renderWater()}
+setInterval(()=>{tickStatic();tickWater();renderAll()},500);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(ac&&ac.state!=='running')try{ac.resume()}catch(e){}tickStatic();tickWater();renderAll()}syncWake()});
+
+/* ---------- имя и журнал ---------- */
 $('name').value=store.get('name','');
 $('name').oninput=e=>store.set('name',e.target.value.trim());
 let log=store.get('log',[]);
 const saveLog=()=>store.set('log',log.slice(-200));
-const pad=n=>String(n).padStart(2,'0');
+const TYPE={walk:'Ходьба',static:'Статика',water:'Вода'};
 
 function renderLog(){
   const items=log.slice(-10).reverse();
   $('log-panel').hidden=!items.length;
   $('log').innerHTML='';
   items.forEach(r=>{
-    const dt=new Date(r.ts),li=document.createElement('li');
-    const a=document.createElement('span');a.textContent=`${pad(dt.getDate())}.${pad(dt.getMonth()+1)} · ${r.time} · ${nf(r.dist)} м · ${r.layers} из ${r.goal} сл.`;
+    const type=r.type||'walk',dt=new Date(r.ts),li=document.createElement('li');
+    const a=document.createElement('span');
+    const ty=document.createElement('span');ty.className='ty';ty.textContent=TYPE[type]+(type==='water'?' '+r.temp+'°':'');
+    const extra=type==='walk'?` · ${nf(r.dist)} м`:'';
+    a.append(ty,document.createTextNode(` · ${pad(dt.getDate())}.${pad(dt.getMonth()+1)} · ${r.time}${extra} · ${r.layers} из ${r.goal} сл.`));
     const b=document.createElement('span');b.className='st';b.textContent=r.sent?'✓ в таблице':'не отправлено';
     li.append(a,b);$('log').appendChild(li);
   });
@@ -212,17 +452,38 @@ async function flush(){
   flushing=false;
   return log.every(x=>x.sent);
 }
+const newId=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2);
+const tstr=t=>`${Math.floor(t/60)}:${pad(t%60)}`;
+
+function buildRecord(name){
+  if(tab==='walk'){
+    const t=Math.floor(secs()),d=Math.round(+String(st.dist).replace(',','.')||0),m=Math.ceil(t/60);
+    if(t<=0||d<=0)return 'Нужны время и пройденные метры';
+    if(st.startedAt){st.acc=secs();st.startedAt=null;save();paintTimer();showTime()}
+    const n=norm(m),x=(m>T1?over(t,d):d)/n,full=Math.floor(x+1e-9);
+    return {type:'walk',time:tstr(t),minutes:Math.max(m,T0),dist:d,temp:'',goal:st.L,layers:full,exact:Math.round(x*100)/100,done:full>=st.L};
+  }
+  if(tab==='static'){
+    if(S.startedAt){S.acc=sEl();S.startedAt=null;sSave()}
+    const t=Math.floor(sEl());if(t<=0)return 'Нет времени — запустите таймер или введите вручную';
+    const x=t/S_LAYER,full=Math.min(S.L,Math.floor(x+1e-9));
+    return {type:'static',time:tstr(t),minutes:S.L*13,dist:'',temp:'',goal:S.L,layers:full,exact:Math.round(x*100)/100,done:full>=S.L};
+  }
+  const n=waterNorm(W.temp);if(!n||n.err)return 'Введите температуру воды';
+  if(W.prepEnd){W.prepEnd=null;W.prep=PREP}
+  if(W.startedAt){W.acc=wEl();W.startedAt=null;wSave()}
+  const t=Math.floor(wEl());if(t<=0)return 'Нет времени в воде';
+  const x=t/wLayer(n),full=Math.min(5,Math.floor(x+1e-9));
+  return {type:'water',time:tstr(t),minutes:n.lo,dist:'',temp:n.t,goal:5,layers:full,exact:Math.round(x*100)/100,done:full>=5};
+}
 
 $('save').onclick=async()=>{
   const msg=$('save-msg'),name=$('name').value.trim();
-  const t=Math.floor(secs()),d=Math.round(+String(st.dist).replace(',','.')||0),m=Math.ceil(t/60);
-  if(!name){msg.textContent='Введите имя, чтобы прогулка попала в таблицу';$('name').focus();return}
-  if(t<=0||d<=0){msg.textContent='Нужны время и пройденные метры';return}
-  if(st.startedAt){st.acc=secs();st.startedAt=null;wake(false);save();paintTimer();showTime()}
-  const n=norm(m),x=(m>T1?over(t,d):d)/n;
-  const r={id:(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2)),
-    ts:Date.now(),name,time:`${Math.floor(t/60)}:${pad(t%60)}`,minutes:Math.max(m,T0),dist:d,
-    goal:st.L,layers:Math.floor(x+1e-9),exact:Math.round(x*100)/100,done:Math.floor(x+1e-9)>=st.L,sent:false};
+  if(!name){msg.textContent='Введите имя, чтобы запись попала в таблицу';$('name').focus();return}
+  const rec=buildRecord(name);
+  if(typeof rec==='string'){msg.textContent=rec;return}
+  syncWake();renderAll();
+  const r=Object.assign({id:newId(),ts:Date.now(),name,sent:false},rec);
   log.push(r);saveLog();renderLog();
   msg.textContent='Отправляю…';
   const ok=await flush();
@@ -231,5 +492,5 @@ $('save').onclick=async()=>{
 
 renderLog();
 if(log.some(x=>!x.sent))flush();
-showTime();paintTimer();calc();
+showTab(tab);syncWake();
 </script>

@@ -1,11 +1,13 @@
 /**
- * Приём прогулок с калькулятора аскезы в Google-таблицу.
+ * Приём записей с калькулятора аскез (ходьба, статика, вода) в Google-таблицу.
  * Вставить в Расширения → Apps Script таблицы и развернуть как веб-приложение
  * (Выполнять от имени: Я, Доступ: Все).
+ * После замены кода: Развернуть → Управление развёртываниями → ✏ → Версия: новая.
  */
-const SHEET_NAME = 'Прогулки';
-const HEADERS = ['Дата', 'Имя', 'Время', 'Норма, мин', 'Метров', 'Цель, слоёв',
-                 'Засчитано слоёв', 'Слоёв точно', 'Цель выполнена', 'ID'];
+const SHEET_NAME = 'Журнал';
+const HEADERS = ['Дата', 'Имя', 'Упражнение', 'Время', 'Норма, мин', 'Метров', 'Температура, °C',
+                 'Цель, слоёв', 'Засчитано слоёв', 'Слоёв точно', 'Цель выполнена', 'ID'];
+const TYPES = { walk: 'Ходьба', static: 'Статика', water: 'Вода' };
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -14,7 +16,7 @@ function doPost(e) {
     const d = JSON.parse(e.postData.contents);
     const sheet = getSheet_();
 
-    // Защита от повторной отправки одной и той же прогулки
+    // Защита от повторной отправки одной и той же записи
     const last = sheet.getLastRow();
     if (last > 1) {
       const ids = sheet.getRange(2, HEADERS.length, last - 1, 1).getValues().flat();
@@ -24,9 +26,11 @@ function doPost(e) {
     sheet.appendRow([
       new Date(Number(d.ts) || Date.now()),
       safe_(d.name),
+      TYPES[d.type] || TYPES.walk,
       safe_(d.time),
       Number(d.minutes) || '',
-      Number(d.dist) || 0,
+      d.dist === '' || d.dist == null ? '' : Number(d.dist) || 0,
+      d.temp === '' || d.temp == null ? '' : Number(d.temp),
       Number(d.goal) || '',
       Number(d.layers) || 0,
       Number(d.exact) || 0,
@@ -49,7 +53,7 @@ function getSheet_() {
     sheet.appendRow(HEADERS);
     sheet.setFrozenRows(1);
     sheet.getRange('A:A').setNumberFormat('dd.MM.yyyy HH:mm');
-    sheet.getRange('C:C').setNumberFormat('@');
+    sheet.getRange('D:D').setNumberFormat('@');
   }
   return sheet;
 }
