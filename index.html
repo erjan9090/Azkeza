@@ -438,12 +438,14 @@ function renderLog(){
   });
 }
 
+let lastErr='';
 async function send(r){
   if(!SCRIPT_URL)return false;
-  try{
-    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(r)});
-    const j=await res.json();return !!j.ok;
-  }catch(e){return false}
+  let res;
+  try{res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(r)})}
+  catch(e){lastErr=navigator.onLine===false?'нет интернета':'скрипт не отвечает — проверьте в развёртывании «Доступ: Все»';return false}
+  try{const j=await res.json();if(j.ok)return true;lastErr='ошибка скрипта: '+(j.error||'неизвестно');return false}
+  catch(e){lastErr='скрипт вернул не тот ответ (HTTP '+res.status+') — проверьте доступ «Все»';return false}
 }
 let flushing=false;
 async function flush(){
@@ -487,7 +489,7 @@ $('save').onclick=async()=>{
   log.push(r);saveLog();renderLog();
   msg.textContent='Отправляю…';
   const ok=await flush();
-  msg.textContent=ok?'Сохранено в таблицу ✓':(SCRIPT_URL?'Нет связи — сохранено на телефоне, отправлю при следующем открытии':'Сохранено на телефоне. Таблица ещё не подключена');
+  msg.textContent=ok?'Сохранено в таблицу ✓':(SCRIPT_URL?'Не отправлено ('+lastErr+'). Запись сохранена на телефоне, отправлю при следующем открытии':'Сохранено на телефоне. Таблица ещё не подключена');
 };
 
 renderLog();

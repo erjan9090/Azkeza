@@ -12,6 +12,16 @@ const HEADERS = ['Дата', 'Имя', 'Упражнение', 'Время', 'Н
                  'Цель, слоёв', 'Засчитано слоёв', 'Слоёв точно', 'Цель выполнена', 'ID'];
 const TYPES = { walk: 'Ходьба', static: 'Статика', water: 'Вода' };
 
+// Проверка: откройте ссылку /exec в браузере — должно быть {"ok":true,...}
+function doGet() {
+  try {
+    const sheet = getSheet_();
+    return json_({ ok: true, table: sheet.getParent().getName(), sheet: sheet.getName(), rows: sheet.getLastRow() - 1 });
+  } catch (err) {
+    return json_({ ok: false, error: String(err) });
+  }
+}
+
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -50,6 +60,7 @@ function doPost(e) {
 
 function getSheet_() {
   const ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('Таблица не найдена: скрипт создан отдельно — впишите SPREADSHEET_ID');
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
