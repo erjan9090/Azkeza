@@ -426,7 +426,7 @@ let log=store.get('log',[]);
 let remote=store.get('remote',null);
 if(remote===null){remote=log.filter(x=>x.sent).slice(-20).reverse();store.set('remote',remote)}
 log=log.filter(x=>!x.sent);
-let remoteState='';   /* '', 'loading', 'ok', 'fail' */
+let remoteState='',remoteErr='';   /* '', 'loading', 'ok', 'fail' */
 const saveLog=()=>store.set('log',log.slice(-200));
 const TYPE={walk:'Ходьба',static:'Статика',water:'Вода'};
 
@@ -446,18 +446,19 @@ function renderLog(){
   const ul=$('log');ul.innerHTML='';
   pending.forEach(r=>ul.appendChild(logItem(r,'не отправлено')));
   rem.forEach(r=>ul.appendChild(logItem(r,'✓')));
-  $('log-note').textContent=remoteState==='loading'?'Загружаю из таблицы…':remoteState==='fail'?'Не удалось загрузить из таблицы — показан сохранённый список':(rem.length||pending.length?'':'');
+  $('log-note').textContent=remoteState==='loading'?'Загружаю из таблицы…':remoteState==='fail'?'Не удалось загрузить из таблицы ('+remoteErr+') — показан сохранённый список':(rem.length||pending.length?'':'');
 }
 async function loadRemote(){
   const name=$('name').value.trim();
   if(!SCRIPT_URL||!name){renderLog();return}
   remoteState='loading';renderLog();
-  try{
-    const res=await fetch(SCRIPT_URL+'?name='+encodeURIComponent(name));
-    const j=await res.json();
-    if(!j.ok||!Array.isArray(j.records))throw 0;
-    remote=j.records;store.set('remote',remote);remoteState='ok';
-  }catch(e){remoteState='fail'}
+  let res,j;
+  try{res=await fetch(SCRIPT_URL+'?name='+encodeURIComponent(name)+'&_='+Date.now(),{cache:'no-store'})}
+  catch(e){remoteState='fail';remoteErr=navigator.onLine===false?'нет интернета':'скрипт не ответил';renderLog();return}
+  try{j=await res.json()}catch(e){remoteState='fail';remoteErr='не тот ответ, HTTP '+res.status;renderLog();return}
+  if(!j.ok){remoteState='fail';remoteErr='ошибка скрипта: '+(j.error||'неизвестно')}
+  else if(!Array.isArray(j.records)){remoteState='fail';remoteErr='в развёртывании старая версия скрипта'}
+  else{remote=j.records;store.set('remote',remote);remoteState='ok'}
   renderLog();
 }
 
