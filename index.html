@@ -46,6 +46,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 .sm{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
 .line{font-size:15px;font-variant-numeric:tabular-nums}
 .line b{font-weight:600}
+input.name{font:500 18px var(--body);text-align:left}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.log li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;font-variant-numeric:tabular-nums}
+.log li:last-child{border-bottom:0}
+.log .st{color:var(--muted);white-space:nowrap}
 </style>
 
 <div class="wrap">
@@ -79,9 +84,23 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
     <div class="line" id="r-norm"></div>
     <div class="line" id="r-hint"></div>
   </div>
+
+  <div class="panel">
+    <span class="lbl">Ваше имя</span>
+    <input id="name" class="name" type="text" autocomplete="name" maxlength="60" placeholder="Например, Ержан">
+    <button class="btn primary" id="save">Сохранить прогулку</button>
+    <div class="line" id="save-msg"></div>
+  </div>
+
+  <div class="panel" id="log-panel" hidden>
+    <span class="lbl">Мои прогулки</span>
+    <ul class="log" id="log"></ul>
+  </div>
 </div>
 
 <script>
+/* Адрес веб-приложения Google Apps Script (заканчивается на /exec) */
+const SCRIPT_URL='';
 const T0=18;
 const D=[3180,3240,3300,3360,3420,3460,3520,3560,3600,3640,3680,3720,3760,3800,3840,3860,3900,3940,3960,4000,4020,4040,4080,4100,4120,4140,4180,4200,4220,4240,4260,4280,4300,4320,4340,4360,4380,4400,4420,4440,4460,4480,4500];
 const T1=T0+D.length-1;
@@ -150,5 +169,58 @@ function calc(){
   }
 }
 
+/* name + journal */
+$('name').value=store.get('name','');
+$('name').oninput=e=>store.set('name',e.target.value.trim());
+let log=store.get('log',[]);
+const saveLog=()=>store.set('log',log.slice(-200));
+const pad=n=>String(n).padStart(2,'0');
+
+function renderLog(){
+  const items=log.slice(-10).reverse();
+  $('log-panel').hidden=!items.length;
+  $('log').innerHTML='';
+  items.forEach(r=>{
+    const dt=new Date(r.ts),li=document.createElement('li');
+    const a=document.createElement('span');a.textContent=`${pad(dt.getDate())}.${pad(dt.getMonth()+1)} · ${r.time} · ${nf(r.dist)} м · ${r.layers} из ${r.goal} сл.`;
+    const b=document.createElement('span');b.className='st';b.textContent=r.sent?'✓ в таблице':'не отправлено';
+    li.append(a,b);$('log').appendChild(li);
+  });
+}
+
+async function send(r){
+  if(!SCRIPT_URL)return false;
+  try{
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(r)});
+    const j=await res.json();return !!j.ok;
+  }catch(e){return false}
+}
+let flushing=false;
+async function flush(){
+  if(flushing)return;flushing=true;
+  for(const r of log.filter(x=>!x.sent)){if(await send(r)){r.sent=true;saveLog();renderLog()}}
+  flushing=false;
+  return log.every(x=>x.sent);
+}
+
+$('save').onclick=async()=>{
+  const msg=$('save-msg'),name=$('name').value.trim();
+  const t=Math.floor(secs()),d=Math.round(+String(st.dist).replace(',','.')||0),m=Math.ceil(t/60);
+  if(!name){msg.textContent='Введите имя, чтобы прогулка попала в таблицу';$('name').focus();return}
+  if(t<=0||d<=0){msg.textContent='Нужны время и пройденные метры';return}
+  if(m>T1){msg.textContent='Больше 60 минут — норм в таблице нет, сохранить нельзя';return}
+  if(st.startedAt){st.acc=secs();st.startedAt=null;wake(false);save();paintTimer();showTime()}
+  const n=norm(m),x=d/n;
+  const r={id:(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2)),
+    ts:Date.now(),name,time:`${Math.floor(t/60)}:${pad(t%60)}`,minutes:Math.max(m,T0),dist:d,
+    goal:st.L,layers:Math.floor(x+1e-9),exact:Math.round(x*100)/100,done:Math.floor(x+1e-9)>=st.L,sent:false};
+  log.push(r);saveLog();renderLog();
+  msg.textContent='Отправляю…';
+  const ok=await flush();
+  msg.textContent=ok?'Сохранено в таблицу ✓':(SCRIPT_URL?'Нет связи — сохранено на телефоне, отправлю при следующем открытии':'Сохранено на телефоне. Таблица ещё не подключена');
+};
+
+renderLog();
+if(log.some(x=>!x.sent))flush();
 showTime();paintTimer();calc();
 </script>
