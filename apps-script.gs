@@ -15,6 +15,18 @@ const TYPES = { walk: 'Ходьба', static: 'Статика', water: 'Вода
 // GET ?name=Имя — последние записи этого человека (для журнала на странице).
 // GET без параметров — проверка: должно быть {"ok":true,...}
 function doGet(e) {
+  const cb = e && e.parameter && e.parameter.callback;
+  const out = doGet_(e);
+  // JSONP: страница может загрузить ответ через <script>, если обычный запрос блокируется
+  if (cb && /^[A-Za-z_$][\w$]{0,60}$/.test(cb)) {
+    return ContentService.createTextOutput(cb + '(' + out + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet_(e) {
+  const json_ = function (o) { return JSON.stringify(o); };
   try {
     const sheet = getSheet_();
     const name = e && e.parameter && e.parameter.name ? String(e.parameter.name).trim().toLowerCase() : '';

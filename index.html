@@ -452,10 +452,20 @@ async function loadRemote(){
   const name=$('name').value.trim();
   if(!SCRIPT_URL||!name){renderLog();return}
   remoteState='loading';renderLog();
-  let res,j;
-  try{res=await fetch(SCRIPT_URL+'?name='+encodeURIComponent(name)+'&_='+Date.now(),{cache:'no-store'})}
-  catch(e){remoteState='fail';remoteErr=navigator.onLine===false?'нет интернета':'скрипт не ответил';renderLog();return}
-  try{j=await res.json()}catch(e){remoteState='fail';remoteErr='не тот ответ, HTTP '+res.status;renderLog();return}
+  const url=SCRIPT_URL+'?name='+encodeURIComponent(name)+'&_='+Date.now();
+  let j=null;
+  try{const res=await fetch(url,{cache:'no-store'});j=await res.json()}catch(e){j=null}
+  if(!j){
+    /* запасной путь: JSONP через <script>, обходит блокировку обычного запроса */
+    j=await new Promise(done=>{
+      const cb='askezaCb'+Date.now(),s=document.createElement('script');
+      const end=v=>{clearTimeout(tm);try{delete window[cb]}catch(e){window[cb]=undefined}s.remove();done(v)};
+      const tm=setTimeout(()=>end(null),12000);
+      window[cb]=v=>end(v);s.onerror=()=>end(null);
+      s.src=url+'&callback='+cb;document.head.appendChild(s);
+    });
+  }
+  if(!j){remoteState='fail';remoteErr=navigator.onLine===false?'нет интернета':'скрипт не ответил — обновите код скрипта и выпустите новую версию';renderLog();return}
   if(!j.ok){remoteState='fail';remoteErr='ошибка скрипта: '+(j.error||'неизвестно')}
   else if(!Array.isArray(j.records)){remoteState='fail';remoteErr='в развёртывании старая версия скрипта'}
   else{remote=j.records;store.set('remote',remote);remoteState='ok'}
