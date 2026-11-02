@@ -184,6 +184,7 @@ input.name{font:500 18px var(--body);text-align:left}
   <div class="panel" id="log-panel" hidden>
     <span class="lbl">Журнал</span>
     <ul class="log" id="log"></ul>
+    <div class="sm" id="log-note"></div>
   </div>
 </div>
 
@@ -419,23 +420,45 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(ac&&ac
 /* ---------- имя и журнал ---------- */
 $('name').value=store.get('name','');
 $('name').oninput=e=>store.set('name',e.target.value.trim());
+$('name').onchange=()=>loadRemote();
+/* log — только неотправленные записи; remote — последние записи из таблицы */
 let log=store.get('log',[]);
+let remote=store.get('remote',null);
+if(remote===null){remote=log.filter(x=>x.sent).slice(-20).reverse();store.set('remote',remote)}
+log=log.filter(x=>!x.sent);
+let remoteState='';   /* '', 'loading', 'ok', 'fail' */
 const saveLog=()=>store.set('log',log.slice(-200));
 const TYPE={walk:'Ходьба',static:'Статика',water:'Вода'};
 
+function logItem(r,status){
+  const type=r.type||'walk',dt=new Date(r.ts),li=document.createElement('li');
+  const a=document.createElement('span');
+  const ty=document.createElement('span');ty.className='ty';ty.textContent=(TYPE[type]||type)+(type==='water'&&r.temp!==''?' '+r.temp+'°':'');
+  const extra=type==='walk'&&r.dist!==''?` · ${nf(+r.dist)} м`:'';
+  a.append(ty,document.createTextNode(` · ${pad(dt.getDate())}.${pad(dt.getMonth()+1)} · ${r.time}${extra} · ${r.layers} из ${r.goal} сл.`));
+  const b=document.createElement('span');b.className='st';b.textContent=status;
+  li.append(a,b);return li;
+}
 function renderLog(){
-  const items=log.slice(-10).reverse();
-  $('log-panel').hidden=!items.length;
-  $('log').innerHTML='';
-  items.forEach(r=>{
-    const type=r.type||'walk',dt=new Date(r.ts),li=document.createElement('li');
-    const a=document.createElement('span');
-    const ty=document.createElement('span');ty.className='ty';ty.textContent=TYPE[type]+(type==='water'?' '+r.temp+'°':'');
-    const extra=type==='walk'?` · ${nf(r.dist)} м`:'';
-    a.append(ty,document.createTextNode(` · ${pad(dt.getDate())}.${pad(dt.getMonth()+1)} · ${r.time}${extra} · ${r.layers} из ${r.goal} сл.`));
-    const b=document.createElement('span');b.className='st';b.textContent=r.sent?'✓ в таблице':'не отправлено';
-    li.append(a,b);$('log').appendChild(li);
-  });
+  const pending=log.slice().reverse(),name=$('name').value.trim().toLowerCase();
+  const rem=(remote||[]).filter(r=>!name||String(r.name).trim().toLowerCase()===name).slice(0,20);
+  $('log-panel').hidden=!pending.length&&!rem.length&&remoteState!=='fail';
+  const ul=$('log');ul.innerHTML='';
+  pending.forEach(r=>ul.appendChild(logItem(r,'не отправлено')));
+  rem.forEach(r=>ul.appendChild(logItem(r,'✓')));
+  $('log-note').textContent=remoteState==='loading'?'Загружаю из таблицы…':remoteState==='fail'?'Не удалось загрузить из таблицы — показан сохранённый список':(rem.length||pending.length?'':'');
+}
+async function loadRemote(){
+  const name=$('name').value.trim();
+  if(!SCRIPT_URL||!name){renderLog();return}
+  remoteState='loading';renderLog();
+  try{
+    const res=await fetch(SCRIPT_URL+'?name='+encodeURIComponent(name));
+    const j=await res.json();
+    if(!j.ok||!Array.isArray(j.records))throw 0;
+    remote=j.records;store.set('remote',remote);remoteState='ok';
+  }catch(e){remoteState='fail'}
+  renderLog();
 }
 
 let lastErr='';
@@ -450,9 +473,11 @@ async function send(r){
 let flushing=false;
 async function flush(){
   if(flushing)return;flushing=true;
-  for(const r of log.filter(x=>!x.sent)){if(await send(r)){r.sent=true;saveLog();renderLog()}}
+  let any=false;
+  for(const r of log.slice()){if(await send(r)){log=log.filter(x=>x.id!==r.id);const {sent,...rest}=r;(remote=remote||[]).unshift(rest);any=true;saveLog();store.set('remote',remote);renderLog()}}
   flushing=false;
-  return log.every(x=>x.sent);
+  if(any)loadRemote();
+  return log.length===0;
 }
 const newId=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2);
 const tstr=t=>`${Math.floor(t/60)}:${pad(t%60)}`;
@@ -493,6 +518,6 @@ $('save').onclick=async()=>{
 };
 
 renderLog();
-if(log.some(x=>!x.sent))flush();
+if(log.length)flush().then(ok=>{if(ok===undefined||!ok)loadRemote()});else loadRemote();
 showTab(tab);syncWake();
 </script>

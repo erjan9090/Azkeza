@@ -12,11 +12,39 @@ const HEADERS = ['Дата', 'Имя', 'Упражнение', 'Время', 'Н
                  'Цель, слоёв', 'Засчитано слоёв', 'Слоёв точно', 'Цель выполнена', 'ID'];
 const TYPES = { walk: 'Ходьба', static: 'Статика', water: 'Вода' };
 
-// Проверка: откройте ссылку /exec в браузере — должно быть {"ok":true,...}
-function doGet() {
+// GET ?name=Имя — последние записи этого человека (для журнала на странице).
+// GET без параметров — проверка: должно быть {"ok":true,...}
+function doGet(e) {
   try {
     const sheet = getSheet_();
-    return json_({ ok: true, table: sheet.getParent().getName(), sheet: sheet.getName(), rows: sheet.getLastRow() - 1 });
+    const name = e && e.parameter && e.parameter.name ? String(e.parameter.name).trim().toLowerCase() : '';
+    if (!name) {
+      return json_({ ok: true, table: sheet.getParent().getName(), sheet: sheet.getName(), rows: sheet.getLastRow() - 1 });
+    }
+    const last = sheet.getLastRow();
+    const rows = last > 1 ? sheet.getRange(2, 1, last - 1, HEADERS.length).getValues() : [];
+    const typeKey = {};
+    Object.keys(TYPES).forEach(function (k) { typeKey[TYPES[k]] = k; });
+    const records = [];
+    for (let i = rows.length - 1; i >= 0 && records.length < 20; i--) {
+      const r = rows[i];
+      if (String(r[1]).trim().toLowerCase() !== name) continue;
+      const time = r[3] instanceof Date
+        ? Utilities.formatDate(r[3], 'GMT', 'H:mm')   // на случай, если ячейка стала временем
+        : String(r[3]);
+      records.push({
+        ts: r[0] instanceof Date ? r[0].getTime() : Date.parse(r[0]) || 0,
+        name: String(r[1]),
+        type: typeKey[r[2]] || 'walk',
+        time: time,
+        dist: r[5],
+        temp: r[6],
+        goal: r[7],
+        layers: r[8],
+        id: String(r[11])
+      });
+    }
+    return json_({ ok: true, records: records });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   }
