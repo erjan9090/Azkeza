@@ -27,8 +27,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .wrap{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 section{display:flex;flex-direction:column;gap:14px}
 h1{font-family:var(--display);font-weight:700;font-size:20px;margin:4px 0 0}
-.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:6px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.tabs button{font:600 16px var(--body);padding:11px 4px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:6px;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.tabs button{font:600 15px var(--body);padding:11px 2px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:background .3s,border-color .3s}
 .panel.done{background:var(--good-soft);border-color:var(--good)}
@@ -72,6 +72,19 @@ input.name{font:500 18px var(--body);text-align:left}
 .log li:last-child{border-bottom:0}
 .log .st{color:var(--muted);white-space:nowrap}
 .log .ty{font-weight:600}
+select{font:600 16px var(--body);width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.prog{display:flex;flex-direction:column;gap:12px}
+.prow{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:baseline}
+.prow .nm{font-weight:600;font-size:17px}
+.prow .ct{font:700 22px var(--display);font-variant-numeric:tabular-nums}
+.prow .sub{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.dots{grid-column:1/-1;display:flex;gap:5px}
+.dots span{flex:1;height:10px;border-radius:5px;background:var(--line)}
+.dots span.on{background:var(--good)}
+.dots span.half{background:var(--accent)}
+.today{display:flex;flex-direction:column;gap:8px}
+.today .btn{text-align:left}
+.warn{font-size:14px;color:var(--accent)}
 @media (prefers-reduced-motion: reduce){.panel{transition:none}}
 </style>
 
@@ -82,6 +95,7 @@ input.name{font:500 18px var(--body);text-align:left}
     <button role="tab" id="t-walk">Ходьба</button>
     <button role="tab" id="t-static">Статика</button>
     <button role="tab" id="t-water">Вода</button>
+    <button role="tab" id="t-plan">График</button>
   </nav>
 
   <!-- ХОДЬБА -->
@@ -89,6 +103,7 @@ input.name{font:500 18px var(--body);text-align:left}
     <div class="panel">
       <span class="lbl">Цель, слоёв</span>
       <div class="seg" id="layers"></div>
+      <div class="warn" id="walk-warn" hidden>Инструктор рекомендует в ходьбе 1–2 слоя за раз</div>
     </div>
 
     <div class="panel">
@@ -174,6 +189,27 @@ input.name{font:500 18px var(--body);text-align:left}
     </div>
   </section>
 
+  <!-- ГРАФИК -->
+  <section id="p-plan" hidden>
+    <div class="panel">
+      <span class="lbl">Мой график</span>
+      <select id="plan-sel"></select>
+      <div class="sm" id="plan-desc"></div>
+    </div>
+
+    <div class="panel" id="plan-today-panel">
+      <span class="lbl" id="plan-today-lbl">Сегодня по графику</span>
+      <div class="today" id="plan-today"></div>
+    </div>
+
+    <div class="panel">
+      <span class="lbl" id="plan-week-lbl">Эта неделя</span>
+      <div class="prog" id="plan-prog"></div>
+      <div class="line" id="plan-total"></div>
+      <div class="sm">Засчитывается подход, где слоёв не меньше плана. Подходы не складываются: два раза по 1 слою — это не 2 слоя. Один вид упражнения считается не больше одного раза в день.</div>
+    </div>
+  </section>
+
   <div class="panel">
     <span class="lbl">Ваше имя</span>
     <input id="name" class="name" type="text" autocomplete="name" maxlength="60" placeholder="Например, Ержан">
@@ -224,14 +260,14 @@ async function syncWake(){
 }
 
 /* вкладки */
-const TABS=['walk','static','water'];
+const TABS=['walk','static','water','plan'];
 let tab=store.get('tab','walk');if(!TABS.includes(tab))tab='walk';
-function showTab(t){tab=t;store.set('tab',t);TABS.forEach(x=>{$('t-'+x).setAttribute('aria-selected',x===t);$('p-'+x).hidden=x!==t});renderAll()}
+function showTab(t){tab=t;store.set('tab',t);TABS.forEach(x=>{$('t-'+x).setAttribute('aria-selected',x===t);$('p-'+x).hidden=x!==t});$('save').hidden=$('save-msg').hidden=t==='plan';renderAll()}
 TABS.forEach(t=>$('t-'+t).onclick=()=>showTab(t));
 
 function layerSeg(el,get,set){
   [1,2,3,4,5].forEach(v=>{const b=document.createElement('button');b.textContent=v;b.onclick=()=>{set(v);paint()};el.appendChild(b)});
-  const paint=()=>[...el.children].forEach((b,i)=>b.setAttribute('aria-pressed',i+1===get()));paint();
+  const paint=()=>[...el.children].forEach((b,i)=>b.setAttribute('aria-pressed',i+1===get()));paint();return paint;
 }
 function segBars(el,n,elapsed,per){
   if(el.children.length!==n){el.innerHTML='';for(let i=0;i<n;i++){const s=document.createElement('span');s.appendChild(document.createElement('i'));el.appendChild(s)}}
@@ -254,7 +290,7 @@ const over=(t,d)=>d*T1*60/t;
 
 let st=Object.assign({L:1,acc:0,startedAt:null,dist:''},store.get('st',{}));
 const save=()=>store.set('st',st);
-layerSeg($('layers'),()=>st.L,v=>{st.L=v;save();calc()});
+const paintWalkL=layerSeg($('layers'),()=>st.L,v=>{st.L=v;save();calc();$('walk-warn').hidden=st.L<=2});
 const secs=()=>st.acc+(st.startedAt?(now()-st.startedAt)/1000:0);
 function showTime(){if(document.activeElement===$('mm')||document.activeElement===$('ss'))return;const s=Math.floor(secs());$('mm').value=s?Math.floor(s/60):'';$('ss').value=s?pad(s%60):''}
 function readManual(){st.acc=readMS('mm','ss');save();calc()}
@@ -306,7 +342,7 @@ let S=Object.assign({L:1,acc:0,startedAt:null},store.get('static',{}));
 const sSave=()=>store.set('static',S);
 const sEl=()=>S.acc+(S.startedAt?(now()-S.startedAt)/1000:0);
 let sSig=Math.floor(sEl()/S_LAYER);
-layerSeg($('s-layers'),()=>S.L,v=>{S.L=v;sSave();renderStatic()});
+const paintStaticL=layerSeg($('s-layers'),()=>S.L,v=>{S.L=v;sSave();renderStatic()});
 
 function tickStatic(){
   if(!S.startedAt)return;
@@ -414,8 +450,8 @@ const wManual=()=>{W.acc=readMS('w-mm','w-ss');const n=waterNorm(W.temp);wSig=n&
 $('w-mm').oninput=wManual;$('w-ss').oninput=wManual;
 
 /* ---------- общий тик ---------- */
-function renderAll(){if(tab==='walk'){showTime();paintTimer();calc()}else if(tab==='static')renderStatic();else renderWater()}
-setInterval(()=>{tickStatic();tickWater();renderAll()},500);
+function renderAll(){if(tab==='walk'){showTime();paintTimer();calc();$('walk-warn').hidden=st.L<=2}else if(tab==='static')renderStatic();else if(tab==='water')renderWater();else renderPlan()}
+setInterval(()=>{tickStatic();tickWater();if(tab!=='plan')renderAll()},500);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(ac&&ac.state!=='running')try{ac.resume()}catch(e){}tickStatic();tickWater();renderAll()}syncWake()});
 
 /* ---------- имя и журнал ---------- */
@@ -441,6 +477,7 @@ function logItem(r,status){
   li.append(a,b);return li;
 }
 function renderLog(){
+  if(tab==='plan')renderPlan();
   const pending=log.slice().reverse(),name=$('name').value.trim().toLowerCase();
   const rem=(remote||[]).filter(r=>r.time&&r.id!=='undefined').filter(r=>!name||String(r.name).trim().toLowerCase()===name).slice(0,20);
   $('log-panel').hidden=!pending.length&&!rem.length&&remoteState!=='fail';
@@ -469,7 +506,7 @@ async function loadRemote(){
   if(!j){remoteState='fail';remoteErr=navigator.onLine===false?'нет интернета':'скрипт не ответил — обновите код скрипта и выпустите новую версию';renderLog();return}
   if(!j.ok){remoteState='fail';remoteErr='ошибка скрипта: '+(j.error||'неизвестно')}
   else if(!Array.isArray(j.records)){remoteState='fail';remoteErr='в развёртывании старая версия скрипта'}
-  else{remote=j.records;store.set('remote',remote);remoteState='ok'}
+  else{remote=j.records;store.set('remote',remote);remoteState='ok';if(Array.isArray(j.plans)&&j.plans.length){plans=j.plans;store.set('plans',plans)}}
   renderLog();
 }
 
@@ -522,12 +559,104 @@ $('save').onclick=async()=>{
   const rec=buildRecord(name);
   if(typeof rec==='string'){msg.textContent=rec;return}
   syncWake();renderAll();
-  const r=Object.assign({id:newId(),ts:Date.now(),name,sent:false},rec);
+  const r=Object.assign({id:newId(),ts:Date.now(),name,sent:false,plan:planId},rec);
   log.push(r);saveLog();renderLog();
   msg.textContent='Отправляю…';
   const ok=await flush();
   msg.textContent=ok?'Сохранено в таблицу ✓':(SCRIPT_URL?'Не отправлено ('+lastErr+'). Запись сохранена на телефоне, отправлю при следующем открытии':'Сохранено на телефоне. Таблица ещё не подключена');
 };
+
+/* ---------- ГРАФИК ---------- */
+const PLAN_DEFAULTS=[
+  {id:'1',water:{times:2,layers:5},static:{times:3,layers:5},walk:{times:2,layers:1},days:'Вода пн,пт · Статика пн,ср,сб · Ходьба вт,чт'},
+  {id:'2',water:{times:2,layers:5},static:{times:3,layers:5},walk:{times:2,layers:1},days:'Вода пн,пт · Статика вт,чт,сб · Ходьба ср,вс'},
+  {id:'3',water:{times:1,layers:5},static:{times:3,layers:5},walk:{times:2,layers:1},days:'Вода пн · Статика пн,ср,сб · Ходьба вт,чт'},
+  {id:'4',water:{times:1,layers:5},static:{times:3,layers:5},walk:{times:2,layers:1},days:'Вода пн · Статика вт,чт,сб · Ходьба ср,вс'}];
+let plans=store.get('plans',null)||PLAN_DEFAULTS;
+let planId=store.get('plan','');
+const KINDS=['water','static','walk'];
+const DOW=['вс','пн','вт','ср','чт','пт','сб'];
+const curPlan=()=>plans.find(p=>p.id===planId)||null;
+function weekStart(d=new Date()){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x.getTime()}
+const dayKey=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate()};
+function planDays(p,kind){
+  const m=String(p.days||'').match(new RegExp(TYPE[kind]+'\\s+([а-яё,\\s]+?)(?=\\s*(·|$|Вода|Статика|Ходьба))','i'));
+  return m?m[1].split(/[,\s]+/).map(s=>s.trim().toLowerCase()).filter(Boolean):[];
+}
+function weekStats(p){
+  const from=weekStart(),name=$('name').value.trim().toLowerCase();
+  const all=[...log,...(remote||[])].filter(r=>r.time&&r.id!=='undefined'&&r.ts>=from&&(!name||String(r.name).trim().toLowerCase()===name));
+  const seen=new Set(),res={};
+  KINDS.forEach(k=>res[k]={full:0,partial:[],days:new Set()});
+  all.filter(r=>!seen.has(r.id)&&seen.add(r.id)).sort((a,b)=>a.ts-b.ts).forEach(r=>{
+    const k=r.type||'walk',need=p[k]?p[k].layers:0,x=res[k];if(!x)return;
+    const dk=dayKey(r.ts);
+    if(+r.layers>=need&&need>0){if(!x.days.has(dk)){x.days.add(dk);x.full++}}
+    else x.partial.push(r);
+  });
+  /* неполный подход не считается, если в тот же день был полный */
+  KINDS.forEach(k=>{const x=res[k];x.partial=x.partial.filter(r=>!x.days.has(dayKey(r.ts)))});
+  return res;
+}
+const sel=$('plan-sel');
+function fillPlans(){
+  const cur=sel.value||planId;sel.innerHTML='';
+  const o0=document.createElement('option');o0.value='';o0.textContent='Выберите график';sel.appendChild(o0);
+  plans.forEach(p=>{const o=document.createElement('option');o.value=p.id;
+    o.textContent=`${p.id}: вода ${p.water.times}×${p.water.layers} · статика ${p.static.times}×${p.static.layers} · ходьба ${p.walk.times}×${p.walk.layers}`;sel.appendChild(o)});
+  sel.value=plans.some(p=>p.id===cur)?cur:'';
+}
+sel.onchange=()=>{planId=sel.value;store.set('plan',planId);renderPlan()};
+function openKind(k,layers){
+  if(k==='walk'){st.L=Math.min(5,Math.max(1,layers||1));save();paintWalkL()}
+  if(k==='static'&&!S.startedAt){S.L=Math.min(5,Math.max(1,layers||1));sSave();paintStaticL()}
+  showTab(k);window.scrollTo(0,0);
+}
+let plansShown='';
+function renderPlan(){
+  const sig=JSON.stringify(plans);if(sig!==plansShown){plansShown=sig;fillPlans()}
+  const p=curPlan();
+  const today=$('plan-today'),prog=$('plan-prog');
+  const ws=new Date(weekStart()),we=new Date(weekStart()+6*864e5);
+  $('plan-week-lbl').textContent=`Эта неделя · ${pad(ws.getDate())}.${pad(ws.getMonth()+1)}–${pad(we.getDate())}.${pad(we.getMonth()+1)}`;
+  if(!p){$('plan-desc').textContent='Выберите свой вариант графика. Новые графики добавляются на лист «Графики» в таблице.';$('plan-today-panel').hidden=true;prog.innerHTML='';$('plan-total').textContent='';return}
+  $('plan-today-panel').hidden=false;
+  $('plan-desc').textContent=p.days?'Рекомендуемые дни: '+p.days:'';
+  const s=weekStats(p),dow=DOW[new Date().getDay()],tk=dayKey(Date.now());
+  /* сегодня */
+  today.innerHTML='';
+  const todays=KINDS.filter(k=>p[k].times>0&&planDays(p,k).includes(dow));
+  const left=KINDS.filter(k=>p[k].times>0&&s[k].full<p[k].times&&!s[k].days.has(tk));
+  const list=todays.length?todays:[];
+  list.forEach(k=>{
+    const done=s[k].days.has(tk),b=document.createElement('button');b.className='btn'+(done?'':' primary');
+    b.textContent=done?`✓ ${TYPE[k]} — сделано сегодня`:`${TYPE[k]} · ${p[k].layers} ${p[k].layers===1?'слой':p[k].layers<5?'слоя':'слоёв'} →`;
+    b.onclick=()=>openKind(k,p[k].layers);today.appendChild(b);
+  });
+  const extra=left.filter(k=>!list.includes(k));
+  if(extra.length){const d=document.createElement('div');d.className='sm';
+    d.textContent=(list.length?'Ещё можно: ':'По графику сегодня день отдыха. Ещё осталось на неделе: ')+extra.map(k=>`${TYPE[k].toLowerCase()} ${p[k].times-s[k].full}×${p[k].layers}`).join(', ');today.appendChild(d)}
+  else if(!list.length){const d=document.createElement('div');d.className='sm';d.textContent='Сегодня по графику отдых';today.appendChild(d)}
+  /* неделя */
+  prog.innerHTML='';let tot=0,need=0;
+  KINDS.forEach(k=>{
+    const pl=p[k];if(!pl.times)return;
+    const x=s[k],row=document.createElement('div');row.className='prow';
+    const nm=document.createElement('span');nm.className='nm';nm.textContent=`${TYPE[k]} · ${pl.layers} ${pl.layers===1?'слой':pl.layers<5?'слоя':'слоёв'}`;
+    const ct=document.createElement('span');ct.className='ct'+(x.full>=pl.times?' good':'');ct.textContent=`${Math.min(x.full,pl.times)}/${pl.times}`;
+    const dots=document.createElement('div');dots.className='dots';
+    for(let i=0;i<pl.times;i++){const d=document.createElement('span');if(i<x.full)d.className='on';else if(i-x.full<x.partial.length)d.className='half';dots.appendChild(d)}
+    const sub=document.createElement('span');sub.className='sub';
+    const notes=[];
+    if(x.full>pl.times)notes.push(`+${x.full-pl.times} сверх плана`);
+    if(x.partial.length)notes.push(`не засчитано: ${x.partial.map(r=>{const d=new Date(r.ts);return DOW[d.getDay()]+' '+r.layers+' из '+pl.layers+' сл.'}).join(', ')}`);
+    if(!notes.length)notes.push(x.full>=pl.times?'выполнено':`дни: ${planDays(p,k).join(', ')||'любые'}`);
+    sub.textContent=notes.join(' · ');
+    row.append(nm,ct,dots,sub);prog.appendChild(row);
+    tot+=Math.min(x.full,pl.times);need+=pl.times;
+  });
+  $('plan-total').innerHTML=tot>=need?`<b class="good">Неделя выполнена ✓ ${tot} из ${need}</b>`:`Выполнено <b>${tot} из ${need}</b>`;
+}
 
 renderLog();
 if(log.length)flush().then(ok=>{if(ok===undefined||!ok)loadRemote()});else loadRemote();
