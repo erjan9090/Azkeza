@@ -664,8 +664,10 @@ if(log.length)flush().then(ok=>{if(ok===undefined||!ok)loadRemote()});else loadR
 (function(){
   let q;try{q=new URLSearchParams(location.search)}catch(e){return}
   if(!q.has('m'))return;
-  const m=parseFloat(String(q.get('m')).replace(',','.'));
-  const mins=q.has('min')?parseFloat(String(q.get('min')).replace(',','.')):NaN;
+  /* номер может прийти с пробелами-разделителями тысяч и запятой: «4 120,5» */
+  const num=v=>parseFloat(String(v).replace(/[\s\u00a0\u202f']/g,'').replace(',','.'));
+  const m=num(q.get('m'));
+  const mins=q.has('min')?num(q.get('min')):NaN;
   try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
   if(!(m>=0))return;
   tab='walk';
