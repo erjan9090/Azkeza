@@ -442,7 +442,7 @@ function logItem(r,status){
 }
 function renderLog(){
   const pending=log.slice().reverse(),name=$('name').value.trim().toLowerCase();
-  const rem=(remote||[]).filter(r=>!name||String(r.name).trim().toLowerCase()===name).slice(0,20);
+  const rem=(remote||[]).filter(r=>r.time&&r.id!=='undefined').filter(r=>!name||String(r.name).trim().toLowerCase()===name).slice(0,20);
   $('log-panel').hidden=!pending.length&&!rem.length&&remoteState!=='fail';
   const ul=$('log');ul.innerHTML='';
   pending.forEach(r=>ul.appendChild(logItem(r,'не отправлено')));
