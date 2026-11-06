@@ -27,8 +27,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .wrap{max-width:480px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
 section{display:flex;flex-direction:column;gap:14px}
 h1{font-family:var(--display);font-weight:700;font-size:20px;margin:4px 0 0}
-.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:6px;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
-.tabs button{font:600 15px var(--body);padding:11px 2px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:6px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.tabs button{font:600 13.5px var(--body);padding:11px 1px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:background .3s,border-color .3s}
 .panel.done{background:var(--good-soft);border-color:var(--good)}
@@ -85,17 +85,42 @@ select{font:600 16px var(--body);width:100%;padding:11px 12px;border-radius:10px
 .today{display:flex;flex-direction:column;gap:8px}
 .today .btn{text-align:left}
 .warn{font-size:14px;color:var(--accent)}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.refresh{font:600 14px var(--body);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;white-space:nowrap}
+.refresh.busy{opacity:.6}
+.update{background:var(--accent);color:#fff;border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-weight:600}
+.update button{font:600 14px var(--body);border:0;border-radius:8px;padding:8px 12px;background:#fff;color:var(--accent);cursor:pointer}
+.wknav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px}
+.wknav button{font:600 20px var(--body);height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.wknav button:disabled{opacity:.35}
+.wknav .wk{text-align:center;font-weight:600}
+.gscroll{overflow-x:auto;margin-inline:-6px}
+table.grid{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px}
+table.grid th{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;padding:4px 2px;text-align:center}
+table.grid th:first-child,table.grid td:first-child{text-align:left;padding-left:6px}
+table.grid td{padding:8px 2px;text-align:center;border-top:1px solid var(--line);white-space:nowrap}
+table.grid td.nm{font-weight:600;font-size:14px;max-width:96px;overflow:hidden;text-overflow:ellipsis}
+table.grid .tdy{background:var(--good-soft)}
+table.grid tr.person{cursor:pointer}
+table.grid tr.person:hover td{background:color-mix(in srgb,var(--line) 40%,transparent)}
+table.grid td.tot{font-weight:700;padding-right:6px;text-align:right}
+table.grid td.det{text-align:left;padding:10px 8px 14px;white-space:normal;border-top:0}
+.lt{font-weight:700;font-size:12px;letter-spacing:.02em}
+.lt.full{color:var(--good)} .lt.part{color:var(--accent)}
+.dash{color:var(--line)}
 @media (prefers-reduced-motion: reduce){.panel{transition:none}}
 </style>
 
 <div class="wrap">
-  <h1>Аскезы</h1>
+  <header class="top"><h1>Аскезы</h1><button class="refresh" id="refresh">⟳ Обновить</button></header>
+  <div class="update" id="update" hidden><span>Доступна новая версия</span><button id="update-go">Обновить</button></div>
 
   <nav class="tabs" role="tablist">
     <button role="tab" id="t-walk">Ходьба</button>
     <button role="tab" id="t-static">Статика</button>
     <button role="tab" id="t-water">Вода</button>
     <button role="tab" id="t-plan">График</button>
+    <button role="tab" id="t-group">Группа</button>
   </nav>
 
   <!-- ХОДЬБА -->
@@ -210,6 +235,16 @@ select{font:600 16px var(--body);width:100%;padding:11px 12px;border-radius:10px
     </div>
   </section>
 
+  <!-- ГРУППА -->
+  <section id="p-group" hidden>
+    <div class="panel">
+      <div class="wknav"><button id="g-prev" aria-label="Предыдущая неделя">‹</button><div class="wk" id="g-week"></div><button id="g-next" aria-label="Следующая неделя">›</button></div>
+      <div class="gscroll"><table class="grid" id="g-table"></table></div>
+      <div class="sm" id="g-note"></div>
+      <div class="sm"><span class="lt full">В С Х</span> — вода, статика, ходьба засчитаны · <span class="lt part">В С Х</span> — сделано меньше плана · нажмите на имя, чтобы увидеть подробности</div>
+    </div>
+  </section>
+
   <div class="panel">
     <span class="lbl">Ваше имя</span>
     <input id="name" class="name" type="text" autocomplete="name" maxlength="60" placeholder="Например, Ержан">
@@ -227,6 +262,7 @@ select{font:600 16px var(--body);width:100%;padding:11px 12px;border-radius:10px
 
 <script>
 /* Адрес веб-приложения Google Apps Script (заканчивается на /exec) */
+const APP_VERSION='2026-11-06a';
 const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwct8hEwX578SlnwitIesx5RyogykbBCDPWO76lhd6xOzdaFU-LbGDKcNwTydaMLe-k/exec';
 
 /* ---------- общее ---------- */
@@ -260,9 +296,9 @@ async function syncWake(){
 }
 
 /* вкладки */
-const TABS=['walk','static','water','plan'];
+const TABS=['walk','static','water','plan','group'];
 let tab=store.get('tab','walk');if(!TABS.includes(tab))tab='walk';
-function showTab(t){tab=t;store.set('tab',t);TABS.forEach(x=>{$('t-'+x).setAttribute('aria-selected',x===t);$('p-'+x).hidden=x!==t});$('save').hidden=$('save-msg').hidden=t==='plan';renderAll()}
+function showTab(t){tab=t;store.set('tab',t);TABS.forEach(x=>{$('t-'+x).setAttribute('aria-selected',x===t);$('p-'+x).hidden=x!==t});$('save').hidden=$('save-msg').hidden=t==='plan'||t==='group';if(t==='group'&&!groupData)loadGroup();renderAll()}
 TABS.forEach(t=>$('t-'+t).onclick=()=>showTab(t));
 
 function layerSeg(el,get,set){
@@ -450,9 +486,9 @@ const wManual=()=>{W.acc=readMS('w-mm','w-ss');const n=waterNorm(W.temp);wSig=n&
 $('w-mm').oninput=wManual;$('w-ss').oninput=wManual;
 
 /* ---------- общий тик ---------- */
-function renderAll(){if(tab==='walk'){showTime();paintTimer();calc();$('walk-warn').hidden=st.L<=2}else if(tab==='static')renderStatic();else if(tab==='water')renderWater();else renderPlan()}
-setInterval(()=>{tickStatic();tickWater();if(tab!=='plan')renderAll()},500);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){if(ac&&ac.state!=='running')try{ac.resume()}catch(e){}tickStatic();tickWater();renderAll()}syncWake()});
+function renderAll(){if(tab==='walk'){showTime();paintTimer();calc();$('walk-warn').hidden=st.L<=2}else if(tab==='static')renderStatic();else if(tab==='water')renderWater();else if(tab==='plan')renderPlan();else renderGroup()}
+setInterval(()=>{tickStatic();tickWater();if(tab!=='plan'&&tab!=='group')renderAll()},500);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkVersion();if(ac&&ac.state!=='running')try{ac.resume()}catch(e){}tickStatic();tickWater();renderAll()}syncWake()});
 
 /* ---------- имя и журнал ---------- */
 $('name').value=store.get('name','');
@@ -657,6 +693,118 @@ function renderPlan(){
   });
   $('plan-total').innerHTML=tot>=need?`<b class="good">Неделя выполнена ✓ ${tot} из ${need}</b>`:`Выполнено <b>${tot} из ${need}</b>`;
 }
+
+/* ---------- ГРУППА ---------- */
+let groupData=store.get('group',null),gOffset=0,gOpen=store.get('gopen',''),gState='';
+const gFrom=()=>weekStart()+gOffset*7*864e5;
+async function scriptCall(body,params){
+  let j=null;
+  try{const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});j=await res.json()}catch(e){j=null}
+  const qs=Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')+'&_='+Date.now();
+  if(!j||!j.ok)try{const res=await fetch(SCRIPT_URL+'?'+qs,{cache:'no-store'});j=await res.json()}catch(e){j=null}
+  if(!j||!j.ok)j=await new Promise(done=>{
+    const cb='askezaG'+Date.now(),s=document.createElement('script');
+    const end=v=>{clearTimeout(tm);try{delete window[cb]}catch(e){window[cb]=undefined}s.remove();done(v)};
+    const tm=setTimeout(()=>end(null),12000);window[cb]=v=>end(v);s.onerror=()=>end(null);
+    s.src=SCRIPT_URL+'?'+qs+'&callback='+cb;document.head.appendChild(s);
+  });
+  return j&&j.ok?j:null;
+}
+async function loadGroup(){
+  if(!SCRIPT_URL)return;
+  const from=gFrom(),to=from+7*864e5;
+  gState='loading';renderGroup();
+  const j=await scriptCall({action:'group',from,to},{group:1,from,to});
+  if(j&&Array.isArray(j.records)){
+    groupData={from,records:j.records,people:j.people||{}};
+    if(gOffset===0)store.set('group',groupData);
+    if(Array.isArray(j.plans)&&j.plans.length){plans=j.plans;store.set('plans',plans)}
+    gState='ok';
+  }else gState='fail';
+  renderGroup();
+}
+function personStats(recs,p){
+  const res={};KINDS.forEach(k=>res[k]={full:0,partial:0,days:new Set()});
+  const byDay=Array.from({length:7},()=>({}));
+  recs.slice().sort((a,b)=>a.ts-b.ts).forEach(r=>{
+    const k=r.type||'walk';if(!res[k])return;
+    const need=p&&p[k]&&p[k].layers?p[k].layers:(+r.goal||1);
+    const full=+r.layers>=need;
+    const di=Math.floor((new Date(r.ts).setHours(0,0,0,0)-gFrom())/864e5);
+    if(di>=0&&di<7)byDay[di][k]=byDay[di][k]==='full'?'full':(full?'full':'part');
+    const dk=dayKey(r.ts);
+    if(full){if(!res[k].days.has(dk)){res[k].days.add(dk);res[k].full++}}else res[k].partial++;
+  });
+  let done=0,need=0;
+  if(p)KINDS.forEach(k=>{if(p[k]&&p[k].times){done+=Math.min(res[k].full,p[k].times);need+=p[k].times}});
+  else KINDS.forEach(k=>done+=res[k].full);
+  return {res,byDay,done,need};
+}
+function renderGroup(){
+  const from=gFrom(),to=new Date(from+6*864e5),f=new Date(from);
+  $('g-week').textContent=(gOffset===0?'Эта неделя · ':'')+`${pad(f.getDate())}.${pad(f.getMonth()+1)}–${pad(to.getDate())}.${pad(to.getMonth()+1)}`;
+  $('g-next').disabled=gOffset>=0;
+  const tbl=$('g-table');tbl.innerHTML='';
+  const data=groupData&&groupData.from===from?groupData:null;
+  $('g-note').textContent=gState==='loading'?'Загружаю…':gState==='fail'?'Не удалось загрузить из таблицы'+(data?' — показаны прошлые данные':''):'';
+  if(!data){return}
+  const todayIdx=gOffset===0?(new Date().getDay()+6)%7:-1;
+  const head=document.createElement('tr');
+  ['', 'пн','вт','ср','чт','пт','сб','вс','итог'].forEach((t,i)=>{const th=document.createElement('th');th.textContent=t;if(i-1===todayIdx)th.className='tdy';head.appendChild(th)});
+  tbl.appendChild(head);
+  const byName={};
+  Object.values(data.people).forEach(pp=>byName[pp.name.toLowerCase()]={name:pp.name,plan:pp.plan,recs:[]});
+  data.records.forEach(r=>{const k=String(r.name).trim().toLowerCase();(byName[k]=byName[k]||{name:r.name,plan:'',recs:[]}).recs.push(r)});
+  const rows=Object.values(byName).map(x=>{const p=plans.find(pl=>pl.id===x.plan)||null;return Object.assign(x,{p},personStats(x.recs,p))});
+  rows.sort((a,b)=>{const pa=a.need?a.done/a.need:0,pb=b.need?b.done/b.need:0;return pb-pa||b.done-a.done||a.name.localeCompare(b.name,'ru')});
+  if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=9;td.className='det';td.textContent='Пока нет записей';tr.appendChild(td);tbl.appendChild(tr);return}
+  const LET={water:'В',static:'С',walk:'Х'};
+  rows.forEach(x=>{
+    const key=x.name.toLowerCase(),tr=document.createElement('tr');tr.className='person';
+    const nm=document.createElement('td');nm.className='nm';nm.textContent=x.name;tr.appendChild(nm);
+    x.byDay.forEach((d,i)=>{const td=document.createElement('td');if(i===todayIdx)td.className='tdy';
+      const ks=KINDS.filter(k=>d[k]);
+      if(!ks.length){const s=document.createElement('span');s.className='dash';s.textContent='·';td.appendChild(s)}
+      ks.forEach(k=>{const s=document.createElement('span');s.className='lt '+d[k];s.textContent=LET[k];td.appendChild(s)});
+      tr.appendChild(td)});
+    const tot=document.createElement('td');tot.className='tot'+(x.need&&x.done>=x.need?' good':'');
+    tot.textContent=x.need?`${x.done}/${x.need}${x.done>=x.need?' ✓':''}`:(x.done?x.done+' п.':'—');tr.appendChild(tot);
+    tr.onclick=()=>{gOpen=gOpen===key?'':key;store.set('gopen',gOpen);renderGroup()};
+    tbl.appendChild(tr);
+    if(gOpen===key){
+      const dr=document.createElement('tr'),td=document.createElement('td');td.colSpan=9;td.className='det';
+      const box=document.createElement('div');box.className='prog';
+      const hdr=document.createElement('div');hdr.className='sm';hdr.textContent=x.p?`График ${x.p.id}`+(x.need?` · выполнено ${Math.round(x.done/x.need*100)}%`:''):'График не выбран — показано число засчитанных подходов';box.appendChild(hdr);
+      KINDS.forEach(k=>{
+        const pl=x.p?x.p[k]:null,st2=x.res[k];if(pl&&!pl.times&&!st2.full)return;if(!pl&&!st2.full&&!st2.partial)return;
+        const row=document.createElement('div');row.className='prow';
+        const n=document.createElement('span');n.className='nm';n.textContent=TYPE[k]+(pl?` · ${pl.layers} сл.`:'');
+        const c=document.createElement('span');c.className='ct'+(pl&&st2.full>=pl.times?' good':'');c.textContent=pl?`${Math.min(st2.full,pl.times)}/${pl.times}`:String(st2.full);
+        row.append(n,c);
+        if(pl){const dots=document.createElement('div');dots.className='dots';for(let i=0;i<pl.times;i++){const d=document.createElement('span');if(i<st2.full)d.className='on';dots.appendChild(d)}row.appendChild(dots)}
+        const notes=[];if(pl&&st2.full>pl.times)notes.push(`+${st2.full-pl.times} сверх плана`);if(st2.partial)notes.push(`не засчитано: ${st2.partial}`);
+        if(notes.length){const s=document.createElement('span');s.className='sub';s.textContent=notes.join(' · ');row.appendChild(s)}
+        box.appendChild(row);
+      });
+      td.appendChild(box);dr.appendChild(td);tbl.appendChild(dr);
+    }
+  });
+}
+$('g-prev').onclick=()=>{gOffset--;loadGroup()};
+$('g-next').onclick=()=>{if(gOffset<0){gOffset++;loadGroup()}};
+
+/* ---------- обновление данных и версии ---------- */
+async function checkVersion(){
+  try{const res=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});const t=await res.text();
+    const m=t.match(/const APP_VERSION='([^']+)'/);$('update').hidden=!(m&&m[1]!==APP_VERSION)}catch(e){}
+}
+$('update-go').onclick=()=>location.replace(location.pathname+'?v='+Date.now()+location.hash);
+$('refresh').onclick=async()=>{
+  const b=$('refresh');if(b.classList.contains('busy'))return;b.classList.add('busy');b.textContent='⟳ Обновляю…';
+  await Promise.all([flush().then(()=>loadRemote()),tab==='group'||groupData?loadGroup():null,checkVersion()]);
+  b.classList.remove('busy');b.textContent='⟳ Обновить';renderAll();
+};
+checkVersion();
 
 renderLog();
 if(log.length)flush().then(ok=>{if(ok===undefined||!ok)loadRemote()});else loadRemote();

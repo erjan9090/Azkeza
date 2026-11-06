@@ -39,6 +39,9 @@ function doGet_(e) {
   try {
     const sheet = getSheet_();
     const plans = getPlans_();
+    if (e && e.parameter && e.parameter.group) {
+      return json_(group_(sheet, plans, Number(e.parameter.from) || 0, Number(e.parameter.to) || Date.now()));
+    }
     const name = e && e.parameter && e.parameter.name ? String(e.parameter.name).trim().toLowerCase() : '';
     if (!name) {
       return json_({ ok: true, table: sheet.getParent().getName(), sheet: sheet.getName(),
@@ -80,6 +83,10 @@ function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
     // Запрос журнала: {action:'list', name:'Имя'}
+    if (d.action === 'group') {
+      return ContentService.createTextOutput(doGet_({ parameter: { group: '1', from: d.from, to: d.to } }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     if (d.action === 'list') {
       return ContentService.createTextOutput(doGet_({ parameter: { name: String(d.name || ' ') } }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -115,6 +122,28 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Активность всех участников за период [from, to) и последний выбранный график каждого
+function group_(sheet, plans, from, to) {
+  const last = sheet.getLastRow();
+  const rows = last > 1 ? sheet.getRange(2, 1, last - 1, HEADERS.length).getValues() : [];
+  const typeKey = {};
+  Object.keys(TYPES).forEach(function (k) { typeKey[TYPES[k]] = k; });
+  const records = [], people = {};
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i];
+    const name = String(r[1]).trim();
+    if (!name || !r[3]) continue;
+    const key = name.toLowerCase();
+    if (!(key in people)) people[key] = { name: name, plan: '' };
+    if (!people[key].plan && r[12]) people[key].plan = String(r[12]);
+    const ts = r[0] instanceof Date ? r[0].getTime() : Date.parse(r[0]) || 0;
+    if (ts >= from && ts < to) {
+      records.push({ ts: ts, name: name, type: typeKey[r[2]] || 'walk', goal: r[7], layers: r[8] });
+    }
+  }
+  return { ok: true, records: records, people: people, plans: plans };
 }
 
 function ss_() {
